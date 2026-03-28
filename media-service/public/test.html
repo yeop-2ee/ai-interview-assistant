@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>STT / TTS 테스트</title>
+  <style>
+    body { font-family: sans-serif; max-width: 640px; margin: 50px auto; padding: 0 20px; }
+    h2 { border-bottom: 2px solid #ddd; padding-bottom: 8px; }
+    button { padding: 12px 24px; font-size: 15px; margin: 6px; cursor: pointer; border: none; border-radius: 6px; }
+    .green  { background: #4CAF50; color: white; }
+    .red    { background: #f44336; color: white; }
+    .blue   { background: #2196F3; color: white; }
+    .status { margin: 12px 0; font-size: 14px; color: #555; }
+    .result { background: #f5f5f5; padding: 16px; border-radius: 6px; white-space: pre-wrap; min-height: 50px; margin-bottom: 24px; }
+    textarea { width: 100%; padding: 10px; font-size: 15px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+    select { padding: 8px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; margin: 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- STT -->
+  <h2>STT 테스트</h2>
+  <button id="startBtn" class="green">녹음 시작</button>
+  <button id="stopBtn" class="red" disabled>녹음 중지 & 변환</button>
+  <div id="sttStatus" class="status">대기 중...</div>
+  <div id="sttResult" class="result"></div>
+
+  <!-- TTS -->
+  <h2>TTS 테스트</h2>
+  <textarea id="ttsInput" rows="3" placeholder="변환할 텍스트를 입력하세요..."></textarea>
+  <br>
+  <select id="voiceSelect">
+    <option value="ko-KR-SunHiNeural">여성 (SunHi)</option>
+    <option value="ko-KR-InJoonNeural">남성 (InJoon)</option>
+  </select>
+  <button id="ttsBtn" class="blue">음성 생성</button>
+  <div id="ttsStatus" class="status">대기 중...</div>
+  <audio id="ttsAudio" controls style="width:100%; margin-top:8px; display:none;"></audio>
+
+  <script>
+    // STT
+    let mediaRecorder;
+    let chunks = [];
+
+    const startBtn  = document.getElementById('startBtn');
+    const stopBtn   = document.getElementById('stopBtn');
+    const sttStatus = document.getElementById('sttStatus');
+    const sttResult = document.getElementById('sttResult');
+
+    startBtn.addEventListener('click', async () => {
+      chunks = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        sttStatus.textContent = 'STT 변환 중...';
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob, 'recording.webm');
+
+        try {
+          const res = await fetch('http://localhost:4000/api/stt/transcribe-direct', {
+            method: 'POST', body: formData,
+          });
+          const data = await res.json();
+          sttResult.textContent = data.text || JSON.stringify(data);
+          sttStatus.textContent = '변환 완료!';
+        } catch (err) {
+          sttStatus.textContent = '오류: ' + err.message;
+        }
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      startBtn.disabled = true;
+      stopBtn.disabled  = false;
+      sttStatus.textContent = '녹음 중...';
+    });
+
+    stopBtn.addEventListener('click', () => {
+      mediaRecorder.stop();
+      startBtn.disabled = false;
+      stopBtn.disabled  = true;
+    });
+
+    // TTS
+    const ttsBtn    = document.getElementById('ttsBtn');
+    const ttsStatus = document.getElementById('ttsStatus');
+    const ttsAudio  = document.getElementById('ttsAudio');
+    const ttsInput  = document.getElementById('ttsInput');
+    const voiceSel  = document.getElementById('voiceSelect');
+
+    ttsBtn.addEventListener('click', async () => {
+      const text = ttsInput.value.trim();
+      if (!text) return alert('텍스트를 입력하세요.');
+
+      ttsStatus.textContent = '음성 생성 중...';
+      ttsBtn.disabled = true;
+
+      try {
+        const res = await fetch('http://localhost:4000/api/tts/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: voiceSel.value }),
+        });
+        const data = await res.json();
+
+        ttsAudio.src = 'http://localhost:4000' + data.path;
+        ttsAudio.style.display = 'block';
+        ttsAudio.play();
+        ttsStatus.textContent = '생성 완료!';
+      } catch (err) {
+        ttsStatus.textContent = '오류: ' + err.message;
+      }
+      ttsBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
