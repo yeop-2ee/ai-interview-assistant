@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>STT / TTS 테스트</title>
   <style>
-    body { font-family: sans-serif; max-width: 640px; margin: 50px auto; padding: 0 20px; }
+    body { font-family: sans-serif; max-width: 700px; margin: 50px auto; padding: 0 20px; }
     h2 { border-bottom: 2px solid #ddd; padding-bottom: 8px; }
     button { padding: 12px 24px; font-size: 15px; margin: 6px; cursor: pointer; border: none; border-radius: 6px; }
     .green  { background: #4CAF50; color: white; }
@@ -12,18 +12,21 @@
     .blue   { background: #2196F3; color: white; }
     .status { margin: 12px 0; font-size: 14px; color: #555; }
     .result { background: #f5f5f5; padding: 16px; border-radius: 6px; white-space: pre-wrap; min-height: 50px; margin-bottom: 24px; }
+    .live-result { background: #f0f8ff; padding: 16px; border-radius: 6px; min-height: 80px; margin-bottom: 24px; line-height: 1.8; }
+    .final   { color: #000; }
+    .interim { color: #999; font-style: italic; }
     textarea { width: 100%; padding: 10px; font-size: 15px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
     select { padding: 8px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; margin: 6px; }
   </style>
 </head>
 <body>
 
-  <!-- STT -->
-  <h2>STT 테스트</h2>
-  <button id="startBtn" class="green">녹음 시작</button>
-  <button id="stopBtn" class="red" disabled>녹음 중지 & 변환</button>
-  <div id="sttStatus" class="status">대기 중...</div>
-  <div id="sttResult" class="result"></div>
+  <!-- 실시간 STT -->
+  <h2>실시간 STT (Live)</h2>
+  <button id="liveStartBtn" class="green">녹음 시작</button>
+  <button id="liveStopBtn" class="red" disabled>녹음 중지</button>
+  <div id="liveStatus" class="status">대기 중...</div>
+  <div id="liveResult" class="live-result"></div>
 
   <!-- TTS -->
   <h2>TTS 테스트</h2>
@@ -38,53 +41,89 @@
   <audio id="ttsAudio" controls style="width:100%; margin-top:8px; display:none;"></audio>
 
   <script>
-    // STT
-    let mediaRecorder;
-    let chunks = [];
+    // ── 실시간 STT ──────────────────────────────────────────
+    const WS_URL = 'ws://localhost:8000/asr';
+    const SAMPLE_RATE = 16000;
 
-    const startBtn  = document.getElementById('startBtn');
-    const stopBtn   = document.getElementById('stopBtn');
-    const sttStatus = document.getElementById('sttStatus');
-    const sttResult = document.getElementById('sttResult');
+    let ws, audioContext, processor, stream;
+    let finalText = '';
 
-    startBtn.addEventListener('click', async () => {
-      chunks = [];
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
+    const liveStartBtn = document.getElementById('liveStartBtn');
+    const liveStopBtn  = document.getElementById('liveStopBtn');
+    const liveStatus   = document.getElementById('liveStatus');
+    const liveResult   = document.getElementById('liveResult');
 
-      mediaRecorder.ondataavailable = e => chunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        sttStatus.textContent = 'STT 변환 중...';
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob, 'recording.webm');
+    function renderResult(interim) {
+      liveResult.innerHTML =
+        `<span class="final">${finalText}</span>` +
+        (interim ? `<span class="interim"> ${interim}</span>` : '');
+    }
 
-        try {
-          const res = await fetch('http://localhost:4000/api/stt/transcribe-direct', {
-            method: 'POST', body: formData,
-          });
-          const data = await res.json();
-          sttResult.textContent = data.text || JSON.stringify(data);
-          sttStatus.textContent = '변환 완료!';
-        } catch (err) {
-          sttStatus.textContent = '오류: ' + err.message;
-        }
-        stream.getTracks().forEach(t => t.stop());
+    liveStartBtn.addEventListener('click', async () => {
+      finalText = '';
+      liveResult.innerHTML = '';
+
+      // WebSocket 연결
+      ws = new WebSocket(WS_URL);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onopen = () => {
+        liveStatus.textContent = '연결됨 — 말해보세요!';
       };
 
-      mediaRecorder.start();
-      startBtn.disabled = true;
-      stopBtn.disabled  = false;
-      sttStatus.textContent = '녹음 중...';
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+
+        // 확정된 텍스트 (lines)
+        if (data.lines?.length) {
+          finalText = data.lines.map(l => l.text || '').join(' ').trim() + ' ';
+        }
+
+        // 아직 처리 중인 텍스트 (buffer)
+        const interim = data.buffer_transcription || '';
+        renderResult(interim);
+      };
+
+      ws.onerror = () => { liveStatus.textContent = '연결 오류 — live_stt_server.py가 실행 중인지 확인하세요.'; };
+      ws.onclose = () => { liveStatus.textContent = '연결 종료'; };
+
+      // 마이크 스트리밍
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+      const source = audioContext.createMediaStreamSource(stream);
+
+      let sending = true;
+      processor = audioContext.createScriptProcessor(2048, 1, 1);
+      processor.onaudioprocess = (e) => {
+        if (!sending || ws.readyState !== WebSocket.OPEN) return;
+        const input = e.inputBuffer.getChannelData(0);
+        const pcm = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          pcm[i] = Math.max(-32768, Math.min(32767, input[i] * 32768));
+        }
+        ws.send(pcm.buffer);
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      liveStartBtn.disabled = true;
+      liveStopBtn.disabled  = false;
+
+      // 중지 버튼
+      liveStopBtn.onclick = () => {
+        sending = false;
+        stream.getTracks().forEach(t => t.stop());
+        processor?.disconnect();
+        liveStartBtn.disabled = false;
+        liveStopBtn.disabled  = true;
+        liveStatus.textContent = '처리 중...';
+        // 서버가 남은 오디오 처리 후 ready_to_stop 보낼 때까지 3초 대기
+        setTimeout(() => { ws?.close(); }, 3000);
+      };
     });
 
-    stopBtn.addEventListener('click', () => {
-      mediaRecorder.stop();
-      startBtn.disabled = false;
-      stopBtn.disabled  = true;
-    });
-
-    // TTS
+    // ── TTS ────────────────────────────────────────────────
     const ttsBtn    = document.getElementById('ttsBtn');
     const ttsStatus = document.getElementById('ttsStatus');
     const ttsAudio  = document.getElementById('ttsAudio');
@@ -105,7 +144,6 @@
           body: JSON.stringify({ text, voice: voiceSel.value }),
         });
         const data = await res.json();
-
         ttsAudio.src = 'http://localhost:4000' + data.path;
         ttsAudio.style.display = 'block';
         ttsAudio.play();
