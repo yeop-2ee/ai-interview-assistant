@@ -8,7 +8,7 @@ const STEPS = [
   { href: "/setup", label: "면접 설정" },
   { href: "/upload", label: "자료 업로드" },
   { href: "/interview", label: "면접 진행" },
-  { href: "/report", label: "결과 확ddd인" },
+  { href: "/report", label: "결과 확인" },
 ];
 
 export function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
