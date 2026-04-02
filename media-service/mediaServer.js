@@ -14,11 +14,13 @@ const sttRouter = require('./stt/whisperService');
 const avatarRouter = require('./avatar/didService');
 const audioRouter = require('./audio/audioUploader');
 const ttsRouter = require('./tts/ttsService');
+const faceRouter = require('./face/faceService');
 
 app.use('/api/stt', sttRouter);
 app.use('/api/avatar', avatarRouter);
 app.use('/api/audio', audioRouter);
 app.use('/api/tts', ttsRouter);
+app.use('/api/face', faceRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'media-service' });
