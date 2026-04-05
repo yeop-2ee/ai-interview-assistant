@@ -1,0 +1,19 @@
+#ollama를 이용한 모델 등록 파일
+# 1. 파일 경로
+FROM "C:/ai_models/EEVE-Korean-Instruct-10.8B-v1.0-Q4_K_M.gguf"
+
+# 2. 설정
+PARAMETER temperature 0.7 #창의성 조절
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>"
+
+# 3. 답변 형식 (EEVE 모델 전용 템플릿)
+TEMPLATE """<|im_start|>system,
+{{ .System }}<|im_end|>
+<|im_start|>user
+{{ .Prompt }}<|im_end|>
+<|im_start|>assistant
+"""
+
+# 4. 기본 페르소나 (AI의 정체성)
+SYSTEM """너는 이력서를 분석해 날카로운 질문을 뽑아내는 전문 면접관이야. 한국어로 논리적인 질문을 3개 생성해줘."""
