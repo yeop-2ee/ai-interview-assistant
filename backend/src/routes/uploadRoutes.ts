@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import multer from "multer";
 import { extractTextFromFile } from "../services/fileTextExtractor";
+import { analyzeResumeText } from "../services/analyzeResume";
 
 const router = express.Router();
 
@@ -17,14 +18,16 @@ router.post("/resume", upload.single("file"), async (req: Request, res: Response
     }
 
     const extractedText = await extractTextFromFile(req.file.path, req.file.originalname);
+    const analysisResult = await analyzeResumeText(extractedText);
 
     return res.status(200).json({
-      message: "파일 업로드 및 텍스트 추출 성공",
+      message: "파일 업로드, 텍스트 추출, 분석 성공",
       originalname: req.file.originalname,
       filename: req.file.filename,
       path: req.file.path,
       size: req.file.size,
       extractedText,
+      analysisResult,
     });
   } catch (error) {
     console.error("파일 처리 오류:", error);
