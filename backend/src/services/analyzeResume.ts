@@ -1,18 +1,19 @@
 //Ai용 서비스 파일
-export async function analyzeResumeText(text: string): Promise<string> {
-  // 일단 임시 분석
-  // 나중에 여기 OpenAI API 붙일 예정
-  return `
-[임시 분석 결과]
+// src/services/analyzeResume.ts
+export interface AnalysisResult {
+  summary: string;
+  questions: string[];
+  keywords: string[];
+}
 
-이 문서의 핵심 내용:
-- 학생회 임원 면접 평가표 관련 문서로 보입니다.
-- 부서별 질문(홍보부, 기획부, 생활부, 서기)과 공통 질문이 포함되어 있습니다.
-- 지원 동기, 협업 능력, 희망 부서 이유, 학업 병행 계획 등을 평가하는 구조입니다.
-
-예상 활용:
-- 면접 질문 데이터베이스로 사용 가능
-- 부서별 질문 자동 추천 가능
-- 평가 항목 자동 정리 가능
-`.trim();
+export async function analyzeResumeText(text: string): Promise<AnalysisResult> {
+  return {
+    summary: "업로드된 문서의 핵심 내용을 요약한 임시 결과입니다.",
+    questions: [
+      "이 문서의 핵심 내용을 설명해주세요.",
+      "가장 강조하고 싶은 경험은 무엇인가요?",
+      "이 경험을 통해 배운 점은 무엇인가요?"
+    ],
+    keywords: ["협업", "책임감", "문제 해결"]
+  };
 }

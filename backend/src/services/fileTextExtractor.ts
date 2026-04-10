@@ -2,8 +2,7 @@ import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
 
-const pdfModule = require("pdf-parse");
-const pdfParse = pdfModule.default || pdfModule;
+const pdfParse = require("pdf-parse");
 
 export async function extractTextFromFile(
   filePath: string,
@@ -20,10 +19,6 @@ export async function extractTextFromFile(
   if (ext === ".docx") {
     const result = await mammoth.extractRawText({ path: filePath });
     return result.value.trim();
-  }
-
-  if (ext === ".hwp") {
-    throw new Error("HWP 파일 텍스트 추출은 아직 지원하지 않습니다.");
   }
 
   throw new Error("지원하지 않는 파일 형식입니다.");
