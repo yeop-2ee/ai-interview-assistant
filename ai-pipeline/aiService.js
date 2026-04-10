@@ -1,15 +1,17 @@
 import express from 'express';
 import ollama from 'ollama';
+import cors from 'cors';
 
 const app = express();
 const port = 3000;
 
-// JSON 형태의 데이터를 주고받기 위한 설정
 app.use(express.json());
+app.use(cors()); 
 
-/**
- * 님이 작성하신 AI 실행 로직
- */
+app.get('/api/interview', (req, res) => {
+  res.send('AI 서버가 정상 작동 중입니다.');
+});
+
 async function generateInterviewQuestions(resumeText) {
   try {
     const response = await ollama.chat({
@@ -21,7 +23,6 @@ async function generateInterviewQuestions(resumeText) {
         }
       ],
     });
-
     return response.message.content;
   } catch (error) {
     console.error("AI 연결 에러:", error);
@@ -31,15 +32,12 @@ async function generateInterviewQuestions(resumeText) {
 
 app.post('/api/interview', async (req, res) => {
   const { resumeText } = req.body;
-
-  // 데이터가 안 들어왔을 경우 예외 처리
   if (!resumeText) {
     return res.status(400).json({ error: "이력서 내용(resumeText)을 보내주세요!" });
   }
 
   try {
     const questions = await generateInterviewQuestions(resumeText);
-
     res.json({ 
       success: true,
       questions: questions 
@@ -50,12 +48,6 @@ app.post('/api/interview', async (req, res) => {
   }
 });
 
-// 서버 실행
 app.listen(port, () => {
-  console.log(`
-  --------------------------------------------------
-  🚀 AI 인터뷰 API 서버가 가동되었습니다!
-  📍 엔드포인트: http://localhost:${port}/api/interview
-  --------------------------------------------------
-  `);
+  console.log(`🚀 서버 시작: http://localhost:3000`);
 });
