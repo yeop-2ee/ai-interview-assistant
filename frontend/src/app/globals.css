@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8f9fc;
+  --foreground: #0d0f1a;
+  --surface: #ffffff;
+  --border: #e4e7ef;
+  --border-subtle: #f0f2f8;
+  --primary: #4f52e8;
+  --primary-hover: #3e41d4;
+  --primary-light: #eef0fd;
+  --text-muted: #6b7280;
+  --text-secondary: #374151;
+  --navy: #0d1035;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+::selection {
+  background: #c7d2fe;
+  color: #1e1b4b;
+}
+
+/* Smooth focus rings */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Hide ALL video controls globally */
+video::-webkit-media-controls,
+video::-webkit-media-controls-enclosure,
+video::-webkit-media-controls-panel,
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-start-playback-button,
+video::-webkit-media-controls-fullscreen-button,
+video::-webkit-media-controls-timeline,
+video::-webkit-media-controls-mute-button,
+video::-webkit-media-controls-volume-slider,
+video::-webkit-media-controls-current-time-display,
+video::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+/* 일부 브라우저에서 paused 상태 시 어두워지는 현상 방지 */
+video::-webkit-media-controls-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  background: transparent !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Print / PDF */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm 12mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 헤더, 푸터, 버튼 숨김 */
+  header,
+  footer,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* 콘텐츠 너비 맞춤 */
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 섹션 페이지 나눔 방지 */
+  .rounded-2xl,
+  .rounded-xl {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 애니메이션 제거 */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
