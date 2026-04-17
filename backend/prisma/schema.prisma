@@ -1,0 +1,39 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int               @id @default(autoincrement())
+  name      String
+  email     String            @unique
+  password  String
+  role      String            @default("user")
+  createdAt DateTime          @default(now())
+  reports   InterviewReport[]
+}
+
+model InterviewReport {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  overallScore Int
+  scores       Json
+  questions    Json
+  fullReport   Json?
+  createdAt    DateTime @default(now())
+}
+
+model KnowledgeEntry {
+  id             Int      @id @default(autoincrement())
+  department     String
+  subject        String
+  content        String
+  registeredBy   String   @default("")
+  createdAt      DateTime @default(now())
+}
