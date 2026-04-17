@@ -43,7 +43,33 @@ function useCountUp(target: number, duration = 1800, active = true, delay = 0, f
   return value;
 }
 
-const overview = [
+type Report = {
+  overallScore: number;
+  grade: string;
+  summary: string;
+  categoryScores: {
+    technical: { score: number; comment: string };
+    logic: { score: number; comment: string };
+    communication: { score: number; comment: string };
+    growth: { score: number; comment: string };
+  };
+  starEvaluation: Array<{
+    questionSummary: string;
+    answerSummary: string;
+    star: {
+      situation: { score: number; comment: string };
+      task: { score: number; comment: string };
+      action: { score: number; comment: string };
+      result: { score: number; comment: string };
+    };
+    totalScore: number;
+  }>;
+  strengths: string[];
+  improvements: string[];
+  recommendedTopics: string[];
+};
+
+const defaultOverview = [
   { label: "답변 내용", score: 82, color: "#4f52e8", bg: "#eef0fd" },
   { label: "논리 구조", score: 75, color: "#0ea5e9", bg: "#e0f2fe" },
   { label: "전공 지식", score: 68, color: "#8b5cf6", bg: "#ede9fe" },
@@ -63,7 +89,7 @@ const eyeData = [
   { label: "자세 안정성", value: "양호", ok: true, note: "전반적으로 안정적" },
 ];
 
-const qFeedback = [
+const defaultQFeedback = [
   {
     q: "자기소개를 1분 이내로 해주세요.",
     answer: "안녕하세요. 저는 컴퓨터공학과를 졸업한 홍길동이라고 합니다...",
@@ -71,28 +97,35 @@ const qFeedback = [
     comment: "구조는 명확했습니다. 다만 지원 직무와의 연관성을 더 직접적으로 언급하면 설득력이 높아집니다.",
     tags: ["자기소개 구조화", "직무 연관성"],
   },
-  {
-    q: "가장 자신 있는 기술 스택과 프로젝트 경험을 말씀해주세요.",
-    answer: "저는 React와 Node.js를 주로 사용하며, 최근에는 팀 프로젝트에서...",
-    scores: { content: 85, logic: 72 },
-    comment: "기술 스택 설명은 좋았으나 프로젝트 성과를 수치로 제시했다면 더 인상적이었을 것입니다.",
-    tags: ["성과 수치화", "STAR 기법"],
-  },
-  {
-    q: "팀 갈등 상황을 어떻게 해결하셨나요?",
-    answer: "팀원 간 의견 충돌 시 저는 먼저 각자의 입장을 충분히 들으려 했습니다...",
-    scores: { content: 70, logic: 68 },
-    comment: "해결 과정 묘사는 좋았지만 본인의 구체적인 기여와 그 결과를 명확하게 제시하는 것이 필요합니다.",
-    tags: ["구체적 사례", "본인 역할 강조"],
-  },
 ];
 
-const weakConcepts = [
+const defaultWeakConcepts = [
   "운영체제 — 프로세스 vs 스레드",
   "네트워크 — TCP 3-Way Handshake",
   "자료구조 — 해시 충돌 해결 방법",
   "DB — 트랜잭션 ACID 속성",
 ];
+
+function buildFromReport(report: Report) {
+  const overview = [
+    { label: "답변 내용", score: report.categoryScores.growth?.score ?? 75, color: "#4f52e8", bg: "#eef0fd" },
+    { label: "논리 구조", score: report.categoryScores.logic?.score ?? 75, color: "#0ea5e9", bg: "#e0f2fe" },
+    { label: "전공 지식", score: report.categoryScores.technical?.score ?? 68, color: "#8b5cf6", bg: "#ede9fe" },
+    { label: "전달력", score: report.categoryScores.communication?.score ?? 80, color: "#059669", bg: "#d1fae5" },
+  ];
+  const qFeedback = (report.starEvaluation ?? []).map((item) => ({
+    q: item.questionSummary,
+    answer: item.answerSummary,
+    scores: {
+      content: item.totalScore,
+      logic: Math.round((item.star.task.score + item.star.action.score) / 50 * 100),
+    },
+    comment: `${item.star.action.comment} ${item.star.result.comment}`,
+    tags: [`S ${item.star.situation.score}점`, `A ${item.star.action.score}점`, `R ${item.star.result.score}점`],
+  }));
+  const weakConcepts = report.recommendedTopics ?? defaultWeakConcepts;
+  return { overview, qFeedback, weakConcepts };
+}
 
 function RadialScore({ score, color, delay = 0 }: { score: number; color: string; delay?: number }) {
   const { ref, inView } = useInView(0.5);
@@ -132,11 +165,24 @@ function MiniBar({ value, color }: { value: number; color: string }) {
   );
 }
 
-const overall = Math.round(overview.reduce((s, x) => s + x.score, 0) / overview.length);
-const overallColor = overall >= 80 ? "#059669" : overall >= 65 ? "#d97706" : "#dc2626";
-
 export default function ReportPage() {
   const router = useRouter();
+  const [report, setReport] = useState<Report | null>(null);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("interviewReport");
+    if (stored) {
+      try { setReport(JSON.parse(stored)); } catch {}
+    }
+  }, []);
+
+  const { overview, qFeedback, weakConcepts } = report
+    ? buildFromReport(report)
+    : { overview: defaultOverview, qFeedback: defaultQFeedback, weakConcepts: defaultWeakConcepts };
+
+  const overall = report?.overallScore ?? Math.round(overview.reduce((s, x) => s + x.score, 0) / overview.length);
+  const overallColor = overall >= 80 ? "#059669" : overall >= 65 ? "#d97706" : "#dc2626";
+
   const { ref: overallRef, inView: overallInView } = useInView(0.5);
   const animatedOverall = useCountUp(overall, 2000, overallInView, 0, 100);
   return (

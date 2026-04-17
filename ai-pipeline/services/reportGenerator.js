@@ -31,7 +31,28 @@ export async function generateReport(resumeText, commonHistory, customHistory) {
     ],
   });
 
-  const report = JSON.parse(response.message.content);
+  const raw = response.message.content;
+  console.log('[reportGenerator] 모델 원본 응답:', raw.slice(0, 300));
+
+  let report;
+  try {
+    report = JSON.parse(raw);
+  } catch (parseError) {
+    console.error('[reportGenerator] JSON 파싱 실패:', parseError.message);
+    console.error('[reportGenerator] 원본 전체:', raw);
+    throw new Error(`모델 JSON 파싱 실패: ${parseError.message}`);
+  }
+
+  // 모델이 필드명을 잘못 반환하는 경우 정규화
+  if (report.categoryScore && !report.categoryScores) {
+    report.categoryScores = report.categoryScore;
+    delete report.categoryScore;
+  }
+  if (report.improvments && !report.improvements) {
+    report.improvements = report.improvments;
+    delete report.improvments;
+  }
+
   return { success: true, report };
 }
 

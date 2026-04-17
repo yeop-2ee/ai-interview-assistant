@@ -116,16 +116,42 @@ function DropZone({
   );
 }
 
+const BACKEND = "http://localhost:3001";
+
 export default function UploadPage() {
   const router = useRouter();
   const [resume, setResume] = useState<FileState>({ file: null, status: "idle" });
   const [cover, setCover] = useState<FileState>({ file: null, status: "idle" });
+  const [resumeText, setResumeText] = useState("");
+  const [coverText, setCoverText] = useState("");
 
-  const handleFile = async (file: File, set: React.Dispatch<React.SetStateAction<FileState>>) => {
+  const handleFile = async (
+    file: File,
+    set: React.Dispatch<React.SetStateAction<FileState>>,
+    setText: (t: string) => void
+  ) => {
     set({ file, status: "checking" });
-    await new Promise((r) => setTimeout(r, 700));
     const err = await checkFile(file);
-    set({ file, status: err ? "error" : "ok", error: err ?? undefined });
+    if (err) { set({ file, status: "error", error: err }); return; }
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${BACKEND}/upload/resume`, { method: "POST", body: form });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setText(data.extractedText ?? "");
+      set({ file, status: "ok" });
+    } catch {
+      set({ file, status: "error", error: "텍스트 추출에 실패했습니다. 다시 시도해주세요." });
+    }
+  };
+
+  const handleProceed = () => {
+    if (!canProceed) return;
+    const combined = [resumeText, coverText].filter(Boolean).join("\n\n---\n\n");
+    sessionStorage.setItem("resumeText", combined);
+    router.push("/interview");
   };
 
   const canProceed = resume.status === "ok" || cover.status === "ok";
@@ -161,7 +187,7 @@ export default function UploadPage() {
               label="이력서를 여기에 놓거나 클릭"
               hint="PDF, DOCX, TXT 지원"
               state={resume}
-              onChange={(f) => handleFile(f, setResume)}
+              onChange={(f) => handleFile(f, setResume, setResumeText)}
             />
           </div>
           <div>
@@ -170,7 +196,7 @@ export default function UploadPage() {
               label="자소서를 여기에 놓거나 클릭"
               hint="PDF, DOCX, TXT 지원"
               state={cover}
-              onChange={(f) => handleFile(f, setCover)}
+              onChange={(f) => handleFile(f, setCover, setCoverText)}
             />
           </div>
         </div>
@@ -200,7 +226,7 @@ export default function UploadPage() {
             이전 단계
           </Link>
           <button
-            onClick={() => canProceed && router.push("/interview")}
+            onClick={handleProceed}
             disabled={!canProceed}
             className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
               canProceed

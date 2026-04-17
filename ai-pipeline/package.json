@@ -2,8 +2,15 @@
   "name": "ai-pipeline",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "start": "node aiService.js"
+  },
   "dependencies": {
+    "cors": "^2.8.6",
     "express": "^5.2.1",
-    "ollama": "^0.5.0"
+    "mammoth": "^1.12.0",
+    "multer": "^2.1.1",
+    "ollama": "^0.5.0",
+    "pdf-parse": "^2.4.5"
   }
 }

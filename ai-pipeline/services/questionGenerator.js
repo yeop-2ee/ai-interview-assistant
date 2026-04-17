@@ -65,8 +65,11 @@ function buildQuestionPrompt(resumeText, chatHistory, currentPhase) {
     ? chatHistory.map(m => `[${m.role === 'assistant' ? '면접관' : '지원자'}] ${m.content}`).join('\n')
     : '(아직 대화 없음)';
 
-  return `[지원자 이력서]
-${resumeText}
+  const resumeSection = resumeText.trim()
+    ? `[지원자 이력서]\n${resumeText}`
+    : `[지원자 이력서]\n(이력서 미제출)\n\n※ 이력서가 없습니다. 지원자의 경험을 직접 파악하기 위해 최근 참여한 프로젝트나 앱/서비스 개발 경험이 있는지 먼저 질문하십시오. 절대 이력서 내용을 짐작하거나 가정하지 마십시오.`;
+
+  return `${resumeSection}
 
 [현재 면접 단계]
 Phase: ${currentPhase}

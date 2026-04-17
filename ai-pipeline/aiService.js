@@ -6,7 +6,7 @@ import { getFollowupQuestion } from './services/followupGenerator.js';
 import { generateReport } from './services/reportGenerator.js';
 
 const app = express();
-const PORT = 3001;
+const PORT = 3003;
 
 app.use(express.json());
 app.use(cors());
@@ -29,22 +29,15 @@ app.get('/api/health', (req, res) => {
 // }
 // ─────────────────────────────────────────────
 app.post('/api/interview/start', async (req, res) => {
-  const { resumeText } = req.body;
-  if (!resumeText?.trim()) {
-    return res.status(400).json({ error: '이력서 내용(resumeText)을 보내주세요.' });
-  }
+  const { resumeText = '' } = req.body;
 
-  try {
-    // 이력서 파싱과 공통 질문 선택을 병렬 처리
-    const [parsedResume, commonQuestions] = await Promise.all([
-      parseResume(resumeText),
-      Promise.resolve(getInitialCommonQuestions()),
-    ]);
+  // 공통질문은 리스트에서 즉시 반환, 이력서 파싱은 백그라운드 실행
+  const commonQuestions = getInitialCommonQuestions();
+  res.json({ success: true, commonQuestions });
 
-    res.json({ success: true, parsedResume, commonQuestions });
-  } catch (error) {
-    console.error('[/api/interview/start]', error);
-    res.status(500).json({ success: false, error: '면접 시작 중 서버 오류가 발생했습니다.' });
+  // 이력서 파싱은 응답 후 백그라운드에서 실행 (공통질문 진행 중 준비)
+  if (resumeText.trim()) {
+    parseResume(resumeText).catch(err => console.error('[parseResume]', err));
   }
 });
 
@@ -61,11 +54,8 @@ app.post('/api/interview/start', async (req, res) => {
 // }
 // ─────────────────────────────────────────────
 app.post('/api/interview/question', async (req, res) => {
-  const { resumeText, chatHistory, currentPhase } = req.body;
+  const { resumeText = '', chatHistory, currentPhase } = req.body;
 
-  if (!resumeText?.trim()) {
-    return res.status(400).json({ error: '이력서 내용(resumeText)을 보내주세요.' });
-  }
   if (!Array.isArray(chatHistory)) {
     return res.status(400).json({ error: 'chatHistory는 배열이어야 합니다.' });
   }
@@ -113,11 +103,8 @@ app.post('/api/interview/question', async (req, res) => {
 // }
 // ─────────────────────────────────────────────
 app.post('/api/interview/report', async (req, res) => {
-  const { resumeText, commonHistory, customHistory } = req.body;
+  const { resumeText = '', commonHistory, customHistory } = req.body;
 
-  if (!resumeText?.trim()) {
-    return res.status(400).json({ error: '이력서 내용(resumeText)을 보내주세요.' });
-  }
   if (!Array.isArray(commonHistory) || !Array.isArray(customHistory)) {
     return res.status(400).json({ error: 'commonHistory, customHistory는 배열이어야 합니다.' });
   }
