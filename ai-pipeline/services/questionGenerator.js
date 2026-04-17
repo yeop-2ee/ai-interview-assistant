@@ -5,12 +5,6 @@ import { commonQuestionsPool } from './questions.js';
 
 const systemPrompt = fs.readFileSync(path.resolve('./prompts/questionPrompt.md'), 'utf-8');
 
-/**
- * 공통 질문 3개 추출
- * - ID 1번(자기소개) 고정
- * - 나머지 2개는 카테고리별 랜덤 선택
- * @returns {Array<{ id: number, category: string, question: string }>}
- */
 export function getInitialCommonQuestions() {
   const introQuestion = commonQuestionsPool.find(q => q.id === 1);
   const othersPool = commonQuestionsPool.filter(q => q.id !== 1);
@@ -28,17 +22,6 @@ export function getInitialCommonQuestions() {
   return [introQuestion, ...randomCommon];
 }
 
-/**
- * 이력서 및 대화 이력 기반으로 맞춤 질문 생성 (Phase 1 ~ 3)
- * - Phase 1: 경험 기반 질문 (이력서 프로젝트/실무 경험)
- * - Phase 2: CS 기반 질문 1 (주요 기술 스택 CS 원리)
- * - Phase 3: CS 기반 질문 2 (다른 기술 스택 / 아키텍처)
- *
- * @param {string} resumeText 지원자 이력서 원문
- * @param {Array<{ role: string, content: string }>} chatHistory 대화 내역
- * @param {number} currentPhase 현재 질문 단계 (1 ~ 3)
- * @returns {{ success: boolean, isFinished: boolean, data?: object }}
- */
 export async function getNextQuestion(resumeText, chatHistory, currentPhase) {
   if (currentPhase < 1 || currentPhase > 3) {
     throw new RangeError(`Phase 범위 오류: questionGenerator는 Phase 1~3만 처리합니다. (받은 값: ${currentPhase})`);
@@ -49,10 +32,7 @@ export async function getNextQuestion(resumeText, chatHistory, currentPhase) {
     format: 'json',
     messages: [
       { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: buildQuestionPrompt(resumeText, chatHistory, currentPhase),
-      },
+      { role: 'user', content: buildQuestionPrompt(resumeText, chatHistory, currentPhase) },
     ],
   });
 

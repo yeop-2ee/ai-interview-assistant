@@ -4,14 +4,6 @@ import ollama from 'ollama';
 
 const systemPrompt = fs.readFileSync(path.resolve('./prompts/reportPrompt.md'), 'utf-8');
 
-/**
- * 면접 전체 대화를 STAR 기법으로 분석하여 평가 리포트 생성
- *
- * @param {string} resumeText 지원자 이력서 원문
- * @param {Array<{ role: string, content: string }>} commonHistory 공통 질문 대화 내역
- * @param {Array<{ role: string, content: string }>} customHistory 맞춤 질문 대화 내역 (Phase 1~5)
- * @returns {{ success: boolean, report: object }}
- */
 export async function generateReport(resumeText, commonHistory, customHistory) {
   const fullHistory = [...commonHistory, ...customHistory];
 
@@ -24,10 +16,7 @@ export async function generateReport(resumeText, commonHistory, customHistory) {
     format: 'json',
     messages: [
       { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: buildReportPrompt(resumeText, commonHistory, customHistory),
-      },
+      { role: 'user', content: buildReportPrompt(resumeText, commonHistory, customHistory) },
     ],
   });
 
@@ -43,7 +32,6 @@ export async function generateReport(resumeText, commonHistory, customHistory) {
     throw new Error(`모델 JSON 파싱 실패: ${parseError.message}`);
   }
 
-  // 모델이 필드명을 잘못 반환하는 경우 정규화
   if (report.categoryScore && !report.categoryScores) {
     report.categoryScores = report.categoryScore;
     delete report.categoryScore;

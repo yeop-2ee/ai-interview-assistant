@@ -26,4 +26,8 @@
   "nextQuestion": "생성된 질문 내용",
   "phase": "현재 질문의 단계 (1~5)",
   "intent": "이 질문을 통해 검증하고자 하는 의도"
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes
