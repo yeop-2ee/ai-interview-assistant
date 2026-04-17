@@ -6,8 +6,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { IconArrowRight, IconMic, IconSend } from "@/components/Icons";
 
 const AI_BASE = "http://localhost:3003";
-const TOTAL_Q = 8; // 공통 3 + 맞춤 5
-
+const TOTAL_Q = 8;
 type ChatEntry = { role: string; content: string };
 type Msg = { role: "ai" | "user"; text: string; time: string };
 
@@ -189,13 +188,13 @@ export default function InterviewPage() {
     setQuestionLoading(false);
   };
 
-  const fetchCustomQuestion = async (rText: string, history: ChatEntry[], phase: number) => {
+  const fetchCustomQuestion = async (rText: string, common: ChatEntry[], custom: ChatEntry[], phase: number) => {
     setQuestionLoading(true);
     try {
       const res = await fetch(`${AI_BASE}/api/interview/question`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeText: rText, chatHistory: history, currentPhase: phase }),
+        body: JSON.stringify({ resumeText: rText, commonHistory: common, chatHistory: custom, currentPhase: phase }),
       });
       const data = await res.json();
       showAIQuestion(data.data?.nextQuestion ?? "다음 질문을 불러올 수 없습니다.");
@@ -227,7 +226,7 @@ export default function InterviewPage() {
       } else {
         setInterviewStage("custom");
         setCustomPhase(1);
-        await fetchCustomQuestion(resumeText, [], 1);
+        await fetchCustomQuestion(resumeText, updatedCommon, [], 1);
       }
     } else {
       const updatedCustom: ChatEntry[] = [
@@ -240,7 +239,7 @@ export default function InterviewPage() {
       if (customPhase < 5) {
         const nextPhase = customPhase + 1;
         setCustomPhase(nextPhase);
-        await fetchCustomQuestion(resumeText, updatedCustom, nextPhase);
+        await fetchCustomQuestion(resumeText, commonHistory, updatedCustom, nextPhase);
       } else {
         setQuestionLoading(true);
         try {

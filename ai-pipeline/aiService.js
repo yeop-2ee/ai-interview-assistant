@@ -54,7 +54,7 @@ app.post('/api/interview/start', async (req, res) => {
 // }
 // ─────────────────────────────────────────────
 app.post('/api/interview/question', async (req, res) => {
-  const { resumeText = '', chatHistory, currentPhase } = req.body;
+  const { resumeText = '', chatHistory, commonHistory = [], currentPhase } = req.body;
 
   if (!Array.isArray(chatHistory)) {
     return res.status(400).json({ error: 'chatHistory는 배열이어야 합니다.' });
@@ -72,11 +72,11 @@ app.post('/api/interview/question', async (req, res) => {
     let result;
 
     if (currentPhase <= 3) {
-      // Phase 1~3: 경험 기반 + CS 기반 질문
-      result = await getNextQuestion(resumeText, chatHistory, currentPhase);
+      // Phase 1~3: 경험 기반 + CS 기반 질문 (commonHistory는 중복방지용으로만 전달)
+      result = await getNextQuestion(resumeText, chatHistory, commonHistory, currentPhase);
     } else {
       // Phase 4~5: 꼬리질문
-      result = await getFollowupQuestion(resumeText, chatHistory, currentPhase);
+      result = await getFollowupQuestion(resumeText, chatHistory, commonHistory, currentPhase);
     }
 
     res.json({ success: true, isFinished: false, ...result });
