@@ -1,0 +1,31 @@
+.DS_Store
+
+# 이미지/영상 파일
+frontend/public/avatar.jpeg
+frontend/public/avatar_videos/
+frontend/public/avatars/
+
+# 환경변수
+frontend/.env.local
+media-service/.env
+backend/.env
+
+# 이력서 샘플
+*.pdf
+
+# 모델 가중치
+gfpgan/
+*.pth
+*.ckpt
+
+# Python 캐시
+__pycache__/
+*.pyc
+
+# 임시 파일
+/tmp/
+
+# 의존성
+node_modules/
+frontend/.next/
+ai-pipeline/.env
