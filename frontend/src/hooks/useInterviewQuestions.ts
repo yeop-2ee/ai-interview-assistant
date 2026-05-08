@@ -86,7 +86,7 @@ export function useInterviewQuestions() {
 
         for await (const event of parseSSE(res)) {
           if (event.type === "progress") {
-            setQuestionsProgress(event.progress as number);
+            setQuestionsProgress(prev => Math.max(prev, event.progress as number));
             setQuestionsStep(
               (event.step as string) ||
               (

@@ -28,3 +28,4 @@ __pycache__/
 # 의존성
 node_modules/
 frontend/.next/
+ai-pipeline/.env

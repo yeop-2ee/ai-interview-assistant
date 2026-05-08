@@ -496,17 +496,30 @@ export default function UploadPage() {
               </svg>
               이전 단계
             </Link>
-            <button
-              onClick={() => canProceed && router.push("/interview")}
-              disabled={!canProceed}
-              className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
-                canProceed
-                  ? "bg-[#4f52e8] hover:bg-[#3e41d4] text-white shadow-md shadow-[#4f52e8]/20"
-                  : "bg-[#e4e7ef] text-[#9ca3af] cursor-not-allowed"
-              }`}
-            >
-              다음 <IconArrowRight />
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={() => canProceed && router.push("/interview")}
+                disabled={!canProceed}
+                className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
+                  canProceed
+                    ? "bg-[#4f52e8] hover:bg-[#3e41d4] text-white shadow-md shadow-[#4f52e8]/20"
+                    : "bg-[#e4e7ef] text-[#9ca3af] cursor-not-allowed"
+                }`}
+              >
+                다음 <IconArrowRight />
+              </button>
+              <button
+                onClick={() => canProceed && router.push("/interview/text")}
+                disabled={!canProceed}
+                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all border ${
+                  canProceed
+                    ? "border-[#4f52e8]/40 text-[#4f52e8] hover:bg-[#4f52e8]/5"
+                    : "border-[#e4e7ef] text-[#9ca3af] cursor-not-allowed"
+                }`}
+              >
+                텍스트로 테스트
+              </button>
+            </div>
           </div>
         </div>
       </main>

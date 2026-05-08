@@ -32,7 +32,7 @@
   ├─ AI 요약 분석 (이름 · 기술스택 · 경력 · 강점)
   └─ 학과 관련성 검사 (불일치 시 경고 + 진행 차단)
         ↓
-AI 맞춤 질문 생성 (Ollama 2-Pass)
+AI 맞춤 질문 생성 (MLX LM 2-Pass)
   ├─ 공통 질문 2개 (지원동기 · 약점)
   ├─ 직무/인성 질문 3개
   └─ 이력서 기반 질문 2개 (resume/mixed 유형)
@@ -57,39 +57,52 @@ AI 맞춤 질문 생성 (Ollama 2-Pass)
 ## 기술 스택
 
 ### Frontend
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.1-black?logo=next.js)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19.2.4-61DAFB?logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0.2-3178C6?logo=typescript)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.2.2-06B6D4?logo=tailwindcss)](https://tailwindcss.com)
 
-| 기술 | 용도 |
-|------|------|
-| Next.js 16 + React 18 + TypeScript | 프레임워크 |
-| Tailwind CSS v4 | 스타일링 |
-| MediaPipe FaceLandmarker | 실시간 얼굴·시선 분석 |
-| MediaRecorder API | 음성 녹음 |
-| Web Audio API | 마이크 레벨 감지 |
-| dom-to-image-more + jsPDF | 리포트 PDF 다운로드 |
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| [Next.js](https://nextjs.org) | 16.2.1 | 프레임워크 |
+| [React](https://react.dev) | 19.2.4 | UI 라이브러리 |
+| [TypeScript](https://www.typescriptlang.org) | 6.0.2 | 타입 안전성 |
+| [Tailwind CSS](https://tailwindcss.com) | 4.2.2 | 스타일링 |
+| [MediaPipe Tasks Vision](https://developers.google.com/mediapipe) | 0.10.34 | 실시간 얼굴·시선 분석 |
+| [jsPDF](https://github.com/parallax/jsPDF) | 4.2.1 | 리포트 PDF 다운로드 |
+| [dom-to-image-more](https://github.com/1904labs/dom-to-image-more) | 3.7.2 | DOM → 이미지 변환 |
+| MediaRecorder API | 브라우저 내장 | 음성 녹음 |
+| Web Audio API | 브라우저 내장 | 마이크 레벨 감지 |
 
 ### Backend
-![Node.js](https://img.shields.io/badge/Node.js-Express-green?logo=node.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-336791?logo=postgresql)
+[![Express](https://img.shields.io/badge/Express-5.2.1-000000?logo=express)](https://expressjs.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0.2-3178C6?logo=typescript)](https://www.typescriptlang.org)
+[![Prisma](https://img.shields.io/badge/Prisma-7.6.0-2D3748?logo=prisma)](https://www.prisma.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?logo=postgresql)](https://www.postgresql.org)
 
-| 기술 | 용도 |
-|------|------|
-| Node.js + Express + TypeScript | 서버 |
-| Prisma 7 + PostgreSQL | ORM + 데이터베이스 |
-| bcrypt | 비밀번호 해싱 |
-| pdf-parse / mammoth | PDF / DOCX 텍스트 추출 |
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| [Node.js](https://nodejs.org) | 18+ | 런타임 |
+| [Express](https://expressjs.com) | 5.2.1 | 서버 프레임워크 |
+| [TypeScript](https://www.typescriptlang.org) | 6.0.2 | 타입 안전성 |
+| [ts-node](https://typestrong.org/ts-node) | 10.9.2 | TypeScript 실행 |
+| [Prisma](https://www.prisma.io) | 7.6.0 | ORM |
+| [PostgreSQL](https://www.postgresql.org) | - | 데이터베이스 |
+| [bcrypt](https://github.com/kelektiv/node.bcrypt.js) | 6.0.0 | 비밀번호 해싱 |
+| [pdf-parse](https://github.com/modesty/pdf2json) | 1.1.4 | PDF 텍스트 추출 |
+| [mammoth](https://github.com/mwilliamson/mammoth.js) | 1.12.0 | DOCX 텍스트 추출 |
+| [multer](https://github.com/expressjs/multer) | 2.1.1 | 파일 업로드 |
 
 ### AI Pipeline
-![Node.js](https://img.shields.io/badge/Node.js-Express-green?logo=node.js)
+[![Express](https://img.shields.io/badge/Express-4.22.1-000000?logo=express)](https://expressjs.com)
+[![MLX LM](https://img.shields.io/badge/MLX_LM-Apple_Silicon-silver?logo=apple)](https://github.com/ml-explore/mlx-examples)
 
-| 기술 | 용도 |
-|------|------|
-| Ollama | 로컬 LLM 실행 환경 |
-| EEVE-Korean-Instruct-10.8B | 한국어 특화 로컬 LLM |
-| Express + SSE | 스트리밍 응답 |
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| [mlx-lm](https://github.com/ml-explore/mlx-examples) | 0.24.0+ | 로컬 LLM 추론 서버 (Apple Silicon MPS) |
+| [openai](https://github.com/openai/openai-node) | 4.x | MLX 서버 OpenAI 호환 API 클라이언트 |
+| [mlx-community/Meta-Llama-3.1-8B-Instruct-4bit](https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct-4bit) | 4bit | 기본 LLM 모델 |
+| [Express](https://expressjs.com) | 4.22.1 | API 서버 + SSE 스트리밍 |
 
 **AI 생성 엔드포인트**
 
@@ -102,16 +115,18 @@ AI 맞춤 질문 생성 (Ollama 2-Pass)
 | `POST /generate/report` | 면접 결과 리포트 생성 (SSE 스트리밍) |
 
 ### Media Service
-![Node.js](https://img.shields.io/badge/Node.js-Express-green?logo=node.js)
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python)
+[![Express](https://img.shields.io/badge/Express-4.22.1-000000?logo=express)](https://expressjs.com)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python)](https://www.python.org)
 
-| 기술 | 용도 |
-|------|------|
-| Express | API 라우팅 |
-| mlx-whisper large-v3-turbo | 음성→텍스트 (Apple Silicon MPS) |
-| ffmpeg | 오디오 전처리 |
-| edge-tts (ko-KR-SunHiNeural) | 텍스트→음성 |
-| Wav2Lip | 립싱크 영상 생성 (MPS 가속) |
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| [Express](https://expressjs.com) | 4.22.1 | API 라우팅 |
+| [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) | large-v3-turbo | 음성→텍스트 (Apple Silicon MPS) |
+| [edge-tts](https://github.com/rany2/edge-tts) | ko-KR-SunHiNeural | 텍스트→음성 |
+| [Wav2Lip](https://github.com/Rudrabha/Wav2Lip) | - | 립싱크 영상 생성 (MPS 가속) |
+| [ffmpeg](https://ffmpeg.org) | - | 오디오·영상 전처리 |
+| [aws-sdk](https://github.com/aws/aws-sdk-js) | 2.1693.0 | AWS 서비스 연동 |
+| [multer](https://github.com/expressjs/multer) | 1.4.5-lts.2 | 파일 업로드 |
 
 ---
 
@@ -175,7 +190,7 @@ ai-interview-assistant/
 │
 ├── ai-pipeline/                           # AI 생성 서버 (포트 5050) [Node.js]
 │   ├── aiServer.js                        # Express 서버 · 모든 AI 생성 엔드포인트 통합
-│   ├── Modelfile                          # Ollama 모델 설정 (EEVE Korean 10.8B)
+│   ├── Modelfile                          # (레거시) Ollama 모델 설정 참고용
 │   └── prompts/
 │       ├── questionPrompt.md              # 맞춤 면접 질문 생성 프롬프트 레퍼런스
 │       ├── reportPrompt.md                # 결과 리포트 생성 프롬프트 레퍼런스
@@ -213,12 +228,16 @@ ai-interview-assistant/
 
 ### 사전 요구사항
 
-- Node.js 18+
-- Python 3.9+ (Apple Silicon 권장)
-- PostgreSQL
-- Ollama
-- ffmpeg
-- Wav2Lip (별도 설치)
+| 항목 | macOS (Apple Silicon) | Windows |
+|------|----------------------|---------|
+| Node.js | 18+ | 18+ |
+| Python | 3.9+ | 3.9+ |
+| PostgreSQL | 필요 | 필요 |
+| LLM 런타임 | mlx-lm | Ollama |
+| STT | mlx-whisper | faster-whisper |
+| TTS | edge-tts | edge-tts |
+| ffmpeg | 필요 | 필요 |
+| Wav2Lip | 선택 (fallback 가능) | 선택 (fallback 가능) |
 
 ### 1. 저장소 클론
 
@@ -241,9 +260,14 @@ cd ../ai-pipeline && npm install
 
 # 미디어 서비스
 cd ../media-service && npm install
+```
 
-# Python 패키지
-pip install mlx-whisper edge-tts
+```bash
+# Python 패키지 — macOS
+pip install mlx-lm mlx-whisper edge-tts
+
+# Python 패키지 — Windows
+pip install faster-whisper edge-tts torch
 ```
 
 ### 3. 환경변수 설정
@@ -277,12 +301,22 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-### 5. Ollama 모델 등록
+### 5. LLM 서버 시작
+
+**macOS — MLX LM Server**
 
 ```bash
-cd ai-pipeline
-ollama create ai-interview-assistant -f Modelfile
+cd ai-pipeline && bash start_mlx_server.sh
 ```
+
+**Windows — Ollama**
+
+```powershell
+cd ai-pipeline
+powershell -ExecutionPolicy Bypass -File start_ollama_server.ps1
+```
+
+모델은 첫 실행 시 자동으로 다운로드됩니다 (~4GB).
 
 ### 6. 서버 실행
 
@@ -298,7 +332,7 @@ cd backend && npx ts-node src/server.ts # http://localhost:3001
 # 3. 미디어 서비스
 cd media-service && npm start           # http://localhost:4000
 
-# 4. AI 파이프라인 (Ollama 실행 후)
+# 4. AI 파이프라인 (MLX 서버 실행 후)
 cd ai-pipeline && node aiServer.js      # http://localhost:5050
 ```
 

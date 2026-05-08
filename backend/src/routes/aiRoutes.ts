@@ -93,7 +93,7 @@ router.post("/followup", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60000),
     })
     const data = await aiRes.json()
     res.json(data)

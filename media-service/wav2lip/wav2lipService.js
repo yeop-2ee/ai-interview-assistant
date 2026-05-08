@@ -7,7 +7,7 @@ const http = require('http');
 const router = express.Router();
 
 const PYTHON_PATH = process.env.PYTHON_PATH
-  || '/Users/sangyeop/.pyenv/versions/3.9.18/bin/python3.9';
+  || (process.platform === 'win32' ? 'python' : 'python3');
 const W2L_RUNNER_PATH = path.join(__dirname, 'wav2lip_runner.py');
 const W2L_SERVER_PATH = path.join(__dirname, 'wav2lip_server.py');
 const FRONTEND_PUBLIC_DIR = path.join(__dirname, '../../frontend/public');

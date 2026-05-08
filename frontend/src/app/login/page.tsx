@@ -8,16 +8,13 @@ import { IconUser, IconLock, IconEye, IconEyeOff, IconArrowRight } from "@/compo
 type Mode = "user" | "admin";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
-const ADMIN_CODE = process.env.NEXT_PUBLIC_ADMIN_CODE!;
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [adminCode, setAdminCode] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [showCode, setShowCode] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -29,18 +26,10 @@ export default function LoginPage() {
       setError("이메일과 비밀번호를 입력해주세요.");
       return;
     }
-    if (mode === "admin" && !adminCode) {
-      setError("관리자 인증 코드를 입력해주세요.");
-      return;
-    }
 
     setLoading(true);
     try {
       if (mode === "admin") {
-        if (adminCode !== ADMIN_CODE) {
-          setError("관리자 인증 코드가 올바르지 않습니다.");
-          return;
-        }
         const res = await fetch(`${BACKEND_URL}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -192,37 +181,6 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-
-            {/* Admin code */}
-            {mode === "admin" && (
-              <div>
-                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">
-                  관리자 인증 코드
-                  <span className="ml-1.5 text-[11px] text-[#9ca3af] font-normal">(관리자에게 문의)</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af]">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-                    </svg>
-                  </div>
-                  <input
-                    type={showCode ? "text" : "password"}
-                    value={adminCode}
-                    onChange={(e) => setAdminCode(e.target.value)}
-                    placeholder="인증 코드 입력"
-                    className="w-full pl-9 pr-10 py-2.5 bg-white border border-[#e4e7ef] rounded-xl text-[14px] text-[#0d1035] placeholder-[#c4c9d6] focus:outline-none focus:border-[#4f52e8] focus:ring-1 focus:ring-[#4f52e8] transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCode((v) => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af] hover:text-[#6b7280] transition-colors"
-                  >
-                    {showCode ? <IconEyeOff /> : <IconEye />}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Error */}
             {error && (
