@@ -6,8 +6,6 @@ import { platform } from 'os';
 
 const IS_WINDOWS = platform() === 'win32';
 
-// macOS: MLX LM Server (http://localhost:8080)
-// Windows: Ollama (http://localhost:11434)
 const DEFAULT_LLM_URL = IS_WINDOWS ? 'http://localhost:11434' : 'http://localhost:8080';
 const DEFAULT_LLM_MODEL = IS_WINDOWS
   ? 'llama3.1:8b'
@@ -28,20 +26,24 @@ app.use(express.json({ limit: '10mb' }));
 // 스타일별 페르소나 (어투·질문 방향에 영향)
 const STYLE_PERSONAS = {
   friendly: {
+    role: '신입 채용 전담 HR 매니저',
     tone: '부드럽고 편안하게 유도하는',
-    desc: '지원자가 긴장하지 않도록 따뜻하고 친절한 어투로 질문을 작성합니다. 질문은 "~에 대해 편하게 말씀해 주시겠어요?" 같은 개방형 형식을 선호합니다.',
+    desc: '지원자가 긴장하지 않도록 따뜻하고 배려하는 어투로 질문합니다. 지원자의 말을 끊지 않고 충분히 들어주는 성격으로, "~에 대해 편하게 말씀해 주시겠어요?", "~하신 경험이 있으시면 공유해 주세요." 같은 개방형 형식을 선호합니다. 부담스럽지 않은 표현으로 지원자가 자연스럽게 속내를 드러낼 수 있도록 유도합니다.',
   },
   pressure: {
+    role: '창업 10년차 회사 대표 겸 투자자 출신 임원',
     tone: '날카롭고 압박적인',
-    desc: '지원자의 논리와 의지를 강하게 검증합니다. 질문은 직접적이고 도전적이며, "그렇게 생각하는 근거가 무엇입니까?" 같은 반론형 어투를 선호합니다.',
+    desc: '지원자의 말 한 마디 한 마디를 검증하며 논리 허점을 파고드는 성격입니다. "그게 정말 본인이 직접 한 건가요?", "왜 그 방법밖에 생각 못 하셨죠?", "그렇게 생각하는 근거가 정확히 무엇입니까?" 같은 직접적이고 도발적인 반론형 어투를 선호합니다. 지원자가 불편함을 느낄 만큼 날카로운 추궁 형식이어도 좋습니다.',
   },
   professor: {
+    role: '15년 경력의 시니어 개발자 출신 기술 면접관',
     tone: '개념을 깊게 파고드는 교수형',
-    desc: '개념의 원리·배경 이해를 중시하며 학문적·분석적 어투로 질문합니다. "~의 원리를 설명하고, 실무에서의 적용 방식까지 논리적으로 전개해 주십시오." 형식을 선호합니다.',
+    desc: '원리와 배경 이해를 중시하며 학문적·분석적 어투로 질문합니다. "~의 내부 동작 원리를 설명하고, 실무에서 어떤 트레이드오프를 고려하셨는지 논리적으로 전개해 주십시오." 형식을 선호합니다. 표면적 답변에 만족하지 않고 "그래서 그 선택이 왜 최선이라고 생각하십니까?" 처럼 한 단계 더 파고드는 성격입니다.',
   },
   practical: {
+    role: '실무 프로젝트를 직접 이끄는 현업 개발팀 팀장',
     tone: '실무 연계 현실적인',
-    desc: '실제 업무 상황을 가정한 현실적 시나리오 기반으로 질문합니다. "실무에서 ○○ 상황이 발생했을 때 어떻게 대처하시겠습니까?" 형식을 선호합니다.',
+    desc: '이론보다 실제 업무에서 바로 써먹을 수 있는지를 봅니다. "실무에서 ○○ 상황이 생겼을 때 어떻게 대처하시겠습니까?", "우리 팀에 합류하면 첫 달에 어떤 기여를 할 수 있을 것 같으세요?" 같은 시나리오 기반 질문을 선호합니다. 추상적인 답변보다 구체적인 행동과 결과를 원합니다.',
   },
 };
 
@@ -80,14 +82,25 @@ const EXPERIENCE_MAP = {
   senior:   '시니어 (5년 이상) — 리더십·아키텍처 설계·기술 의사결정·멘토링 역량 위주 질문',
 };
 
-// LLM 단일 호출 헬퍼 (스트리밍, 진행률 콜백 포함)
-// estimatedChars: 예상 응답 문자 수 기반으로 진행률 계산 (MLX는 문자 단위 청크)
-async function streamMLX(prompt, onProgress, estimatedChars = 400) {
+function setupSSE(res) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  return (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function cleanMarkdownJSON(text) {
+  return text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+}
+
+async function streamRaw(prompt, onProgress, estimatedChars = 400, extraOptions = {}) {
   const stream = await client.chat.completions.create({
     model: MLX_MODEL,
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     stream: true,
+    ...extraOptions,
   });
   let fullContent = '';
   let lastReported = -1;
@@ -95,17 +108,22 @@ async function streamMLX(prompt, onProgress, estimatedChars = 400) {
     const delta = chunk.choices[0]?.delta?.content || '';
     fullContent += delta;
     if (delta) {
-      const p = Math.min(Math.floor((fullContent.length / estimatedChars) * 100), 99);
+      const p = Math.min(Math.floor((fullContent.length / estimatedChars) * 95), 95);
       if (p !== lastReported) {
         lastReported = p;
         onProgress(p);
       }
     }
   }
+  return fullContent;
+}
+
+async function streamMLX(prompt, onProgress, estimatedChars = 400) {
+  const raw = await streamRaw(prompt, onProgress, estimatedChars);
   try {
-    return extractJSON(fullContent);
+    return extractJSON(raw);
   } catch {
-    throw new Error(`LLM 응답 JSON 파싱 실패: ${fullContent.substring(0, 100)}`);
+    throw new Error(`LLM 응답 JSON 파싱 실패: ${raw.substring(0, 100)}`);
   }
 }
 
@@ -118,7 +136,7 @@ function extractJSON(text) {
   return JSON.parse(match[0]);
 }
 
-async function callMLX(prompt) {
+async function callMLX(prompt, { allowTextFallback = false } = {}) {
   const result = await client.chat.completions.create({
     model: MLX_MODEL,
     messages: [
@@ -132,40 +150,51 @@ async function callMLX(prompt) {
   try {
     return extractJSON(raw);
   } catch {
-    // 모델이 JSON 없이 평문으로 응답한 경우 — 질문처럼 생긴 텍스트면 followup으로 사용
-    const cleaned = raw.replace(/<\|.*?\|>/g, '').trim().replace(/^"|"$/g, '');
-    if (cleaned.includes('?') && cleaned.length > 5) {
-      return { followup: cleaned, needed: 'yes', type: 'shallow' };
+    if (allowTextFallback) {
+      // 꼬리질문 전용 — 모델이 JSON 없이 질문 텍스트로 응답한 경우
+      const cleaned = raw.replace(/<\|.*?\|>/g, '').trim().replace(/^"|"$/g, '');
+      if (cleaned.includes('?') && cleaned.length > 5) {
+        return { followup: cleaned, needed: 'yes', type: 'shallow' };
+      }
     }
     throw new Error(`JSON 파싱 실패: ${raw.substring(0, 80)}`);
   }
 }
 
 // ── 공통 2개: 세션마다 LLM으로 생성 (스타일 반영) ───────────────────
+function buildBaseContext(department, jobRole, companyType, experienceLevel, style) {
+  return {
+    persona: STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly,
+    level: EXPERIENCE_MAP[experienceLevel] || experienceLevel,
+    companyLabel: COMPANY_TYPE_MAP[companyType] || companyType,
+    companyContext: COMPANY_CONTEXT[companyType] || '',
+  };
+}
+
 function buildCommonPrompt(department, jobRole, companyType, experienceLevel, style) {
-  const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+  const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
   const target = jobRole ? `${department} / ${jobRole}` : department;
-  const level = EXPERIENCE_MAP[experienceLevel] || experienceLevel;
-  const companyContext = COMPANY_CONTEXT[companyType] || '';
 
   let p = `당신은 한국어로만 대답하는 채용 전문 면접관입니다.\n`;
+  p += `면접관 역할: ${persona.role}\n`;
   p += `지원자: ${target} | 수준: ${level}\n`;
-  p += `회사 유형: ${COMPANY_TYPE_MAP[companyType] || companyType}\n`;
-  p += `면접관 스타일: ${persona.tone} — ${persona.desc}\n\n`;
+  p += `회사 유형: ${companyLabel}\n`;
+  p += `면접관 성격: ${persona.tone} — ${persona.desc}\n\n`;
   if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
 
   p += `아래 2개의 면접 질문을 생성하세요. 두 질문은 서로 다른 주제를 다뤄야 합니다.\n\n`;
 
   p += `질문 1 — [지원 동기 & 기여 계획]\n`;
   p += `"왜 지원했나요?"처럼 진부한 질문 금지.\n`;
-  p += `이 회사의 특성(${COMPANY_TYPE_MAP[companyType] || companyType})과 연결해서,`;
+  p += `이 회사의 특성(${companyLabel})과 연결해서,`;
   p += ` 지원자가 이 환경에서 구체적으로 어떤 문제를 풀고 싶은지, 본인의 어떤 강점을 발휘할 수 있는지를 끌어내세요.\n`;
   p += `신입이면 성장 방향과 학습 의지, 주니어 이상이면 실무 경험과 연결한 기여 계획을 구체적으로 묻는 형식.\n\n`;
 
   p += `질문 2 — [실패·압박·갈등 경험]\n`;
   p += `"약점이 뭔가요" 같은 템플릿 금지. 구체적인 어려운 상황(기술적 판단 실수, 일정 압박, 의견 충돌 등)을 설정하고,`;
   p += ` 그 상황에서 어떻게 대응했고 무엇을 배웠는지를 끌어내는 질문.\n`;
-  p += `스타트업이나 중소기업이면 리소스 부족·속도 압박 상황을 구체적으로 넣으세요.\n\n`;
+  if (companyContext) p += `위에서 제시한 [회사 맥락]의 현실적 압박 상황을 질문 안에 구체적으로 반영하세요.\n`;
+  p += `\n`;
 
   p += `[작성 규칙]\n`;
   p += `- 각 질문은 하나의 완결된 문장, 물음표(?)는 문장 끝에 하나만.\n`;
@@ -178,17 +207,22 @@ function buildCommonPrompt(department, jobRole, companyType, experienceLevel, st
 }
 
 // ── 직무/인성 3개 (이력서 없이) ───────────────────────────────────────
-function buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries = []) {
-  const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+function buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries = [], previousQuestions = []) {
+  const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
   const target = jobRole ? `${department} 학과 / ${jobRole}` : department;
-  const level = EXPERIENCE_MAP[experienceLevel] || experienceLevel;
   const roleLabel = jobRole || department;
 
   let p = `당신은 한국어로만 대답하는 채용 전문 면접관입니다.\n`;
+  p += `면접관 역할: ${persona.role}\n`;
   p += `지원자 정보: ${target}\n`;
-  p += `회사 유형: ${COMPANY_TYPE_MAP[companyType] || companyType}\n`;
+  p += `회사 유형: ${companyLabel}\n`;
   p += `지원자 수준: ${level}\n`;
-  p += `면접관 스타일: ${persona.tone} — ${persona.desc}\n\n`;
+  p += `면접관 성격: ${persona.tone} — ${persona.desc}\n\n`;
+  if (previousQuestions.length > 0) {
+    p += `[중복 금지] 아래 질문들과 주제가 겹치지 않는 완전히 다른 관점의 질문을 작성하세요:\n`;
+    previousQuestions.forEach(q => p += `- ${q}\n`);
+    p += `\n`;
+  }
 
   if (knowledgeEntries.length > 0) {
     p += `[${department} 직무 전공지식 참고]\n`;
@@ -198,19 +232,28 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
     p += '\n';
   }
 
-  const companyContext = COMPANY_CONTEXT[companyType] || '';
-
   if (interviewType === 'personality') {
+    const personalityDepthGuide = experienceLevel === 'newcomer'
+      ? '신입이므로: 학교·팀 프로젝트 경험 기반으로 질문하세요. "주도했다", "결정했다" 대신 "의견을 냈다", "제안해봤다" 수준의 경험을 묻는 형식.'
+      : experienceLevel === 'junior'
+      ? '주니어이므로: 실무에서 실제로 겪은 갈등·압박 경험을 묻되, 팀 내 주도보다 참여·기여 관점에서 질문하세요.'
+      : experienceLevel === 'mid'
+      ? '미드레벨이므로: 팀 내 기술 결정을 주도하거나 갈등을 조율한 경험, 일정·품질 사이의 트레이드오프 판단 경험을 구체적으로 묻는 형식.'
+      : '시니어이므로: 조직 방향 결정, 팀원 설득, 장기적 기술 부채 관리 등 리더십 관점의 인성 경험을 묻는 형식.';
+
     p += `${roleLabel} 직무 면접에서 지원자의 실제 업무 태도와 협업 방식을 검증하는 인성 질문 3개를 작성하세요.\n`;
     if (companyContext) p += `[회사 맥락] ${companyContext}\n`;
-    p += `\n`;
+    p += `${personalityDepthGuide}\n\n`;
     p += `질문 1 — 기술적 의견 충돌 또는 우선순위 갈등 상황: 어떻게 설득하고 조율했는지 구체적 경험을 묻는 질문.\n`;
-    p += `질문 2 — 예상치 못한 장애·일정 압박·리소스 부족 상황: 실제로 어떻게 대응했는지 묻는 질문. 회사 맥락(스타트업이면 인원 부족·속도 압박 등)을 상황에 녹이세요.\n`;
+    p += `질문 2 — 예상치 못한 장애·일정 압박·리소스 부족 상황: 실제로 어떻게 대응했는지 묻는 질문.`;
+    if (companyContext) p += ` 위에서 제시한 [회사 맥락]의 현실적 압박 상황을 질문 안에 반영하세요.`;
+    p += `\n`;
     p += `질문 3 — 본인이 기술적 결정을 주도했거나 방향을 바꾼 경험: 그 판단 근거와 결과를 묻는 질문.\n\n`;
     p += `작성 규칙:\n`;
     p += `- 각 질문은 하나의 완결된 문장, 물음표(?)는 끝에 하나만.\n`;
     p += `- 추상적 질문 금지 — 반드시 구체적인 상황을 먼저 설정하고 그 상황에서의 대응을 묻는 형식.\n`;
     p += `- 어미: "~셨나요?", "~있으신가요?", "~하셨습니까?" 등 자연스러운 존댓말. "~이에요?", "~어떤가요?" 금지.\n`;
+    p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
     p += `{"questions":["인성질문1","인성질문2","인성질문3"]}`;
   } else {
@@ -232,11 +275,13 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
     p += `질문 1 — 핵심 개념 실무 적용: "~란 무엇입니까" 금지. 실제 사용할 때 어떤 판단을 했는지, 어떤 문제가 생겼는지를 묻는 상황 기반 질문.\n`;
     p += `질문 2 — 기술적 문제 상황 대응: ${roleLabel}에서 실제로 발생하는 구체적 문제 상황(성능 저하, 데이터 불일치, 장애 등)을 제시하고 어떻게 접근했는지 판단력을 검증.\n`;
     p += `질문 3 — 트레이드오프 판단: 두 기술·설계 방식 중 하나를 선택해야 하는 상황을 제시하고, 어떤 기준으로 결정하겠는지 사고 과정을 보는 질문. 정답 없는 열린 질문.\n`;
-    p += `⚠️ 회사 맥락이 스타트업이면 질문 2 또는 3에 "리소스 부족", "빠른 출시 압박", "혼자 담당" 같은 현실적 상황을 반드시 포함하세요.\n\n`;
+    if (companyContext) p += `위에서 제시한 [회사 맥락]의 현실적 압박 상황을 질문 2 또는 3에 구체적으로 반영하세요.\n`;
+    p += `\n`;
     p += `작성 규칙:\n`;
     p += `- 각 질문은 하나의 완결된 문장, 물음표(?)는 끝에 하나만.\n`;
     p += `- 추상적 질문 금지 — 상황을 먼저 제시하고 그 상황에서의 판단·경험을 묻는 형식.\n`;
     p += `- 어미: "~셨나요?", "~있으신가요?", "~하시겠습니까?", "~하셨습니까?" 등 자연스러운 존댓말. "~이에요?", "~어떤가요?" 금지.\n`;
+    p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
     p += `{"questions":["직무질문1","직무질문2","직무질문3"]}`;
   }
@@ -244,16 +289,32 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
 }
 
 // ── 이력서 2개 (resume/mixed 전용) ──────────────────────────────────
-function buildResumePrompt(department, jobRole, companyType, experienceLevel, style, resumeText) {
-  const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+function buildResumePrompt(department, jobRole, companyType, experienceLevel, style, resumeText, previousQuestions = []) {
+  const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
   const target = jobRole ? `${department} / ${jobRole}` : department;
-  const level = EXPERIENCE_MAP[experienceLevel] || experienceLevel;
+
+  const depthGuide = experienceLevel === 'newcomer'
+    ? '신입이므로: 이력서 경험에서 기술적 판단 이유와 배운 점을 중심으로 질문하세요. 깊은 실무 경험 전제 금지.'
+    : experienceLevel === 'junior'
+    ? '주니어이므로: 이력서 경험에서 실제 맞닥뜨린 문제와 해결 과정, 기술 선택 이유를 구체적으로 질문하세요.'
+    : experienceLevel === 'mid'
+    ? '미드레벨이므로: 이력서 경험에서 설계 결정 배경, 성능 최적화, 아키텍처 트레이드오프를 질문하세요.'
+    : '시니어이므로: 이력서 경험에서 기술 의사결정 과정, 팀/조직에 미친 영향, 복잡한 문제 해결 방식을 질문하세요.';
 
   let p = `당신은 한국어로만 대답하는 채용 전문 면접관입니다.\n`;
+  p += `면접관 역할: ${persona.role}\n`;
   p += `지원자: ${target} | 수준: ${level}\n`;
-  p += `면접관 스타일: ${persona.tone} — ${persona.desc}\n\n`;
+  p += `회사 유형: ${companyLabel}\n`;
+  p += `면접관 성격: ${persona.tone} — ${persona.desc}\n\n`;
+  if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
   p += `[지원자 이력서/자소서]\n${resumeText.trim().substring(0, 2000)}\n\n`;
   p += `위 이력서를 꼼꼼히 읽고, 이 사람에게만 할 수 있는 질문 2개를 작성하세요.\n`;
+  p += `${depthGuide}\n`;
+  if (previousQuestions.length > 0) {
+    p += `[중복 금지] 아래 질문들과 주제가 겹치지 않는 완전히 다른 관점의 질문을 작성하세요:\n`;
+    previousQuestions.forEach(q => p += `- ${q}\n`);
+    p += `\n`;
+  }
   p += `⚠️ 일반 기술 질문 절대 금지 (예: "REST란?", "협업 어떻게 하나요?" 등)\n`;
   p += `⚠️ 두 질문은 반드시 이력서의 서로 다른 경험 항목을 기반으로 해야 합니다. 같은 프로젝트·기술을 두 번 다루면 안 됩니다.\n\n`;
 
@@ -268,6 +329,7 @@ function buildResumePrompt(department, jobRole, companyType, experienceLevel, st
   p += `- 이력서의 구체적인 기술·상황을 질문 안에 녹이세요 (이 사람만 받을 수 있는 질문).\n`;
   p += `- 특정 프로젝트명·회사명 언급 금지. 기술 내용과 상황으로 묘사.\n`;
   p += `- 어미: "~셨나요?", "~있으신가요?", "~하셨습니까?", "~말씀해 주시겠어요?" 등 자연스러운 존댓말. "~이에요?", "~어떤가요?" 금지.\n`;
+  p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
   p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
   p += `{"questions":["이력서질문1","이력서질문2"]}`;
   return p;
@@ -277,12 +339,7 @@ app.post('/generate/questions', async (req, res) => {
   const { resumeText, knowledgeEntries = [], department, jobRole, companyType, experienceLevel, interviewType } = req.body;
   const style = resolveStyle(req.body.style);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const send = setupSSE(res);
 
   try {
     let questions = [];
@@ -310,7 +367,7 @@ app.post('/generate/questions', async (req, res) => {
       // ── 패스 2: 직무 3개 (25~65%) ───────────────────────────
       sendProgress(25, '직무 질문 생성 중...');
       const pass2 = await streamMLX(
-        buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries),
+        buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries, commonQs),
         (p) => sendProgress(25 + Math.floor(p * 0.40), '직무 질문 생성 중...'),
         220, // 직무 3개: ~220자
       );
@@ -321,7 +378,7 @@ app.post('/generate/questions', async (req, res) => {
       if (hasResume) {
         sendProgress(65, '이력서 질문 생성 중...');
         const pass3 = await streamMLX(
-          buildResumePrompt(department, jobRole, companyType, experienceLevel, style, resumeText),
+          buildResumePrompt(department, jobRole, companyType, experienceLevel, style, resumeText, [...commonQs, ...jobQs]),
           (p) => sendProgress(65 + Math.floor(p * 0.30), '이력서 질문 생성 중...'),
           150, // 이력서 2개: ~150자
         );
@@ -334,7 +391,7 @@ app.post('/generate/questions', async (req, res) => {
       // ── 패스 2: 직무/인성 3개 (25~95%) ─────────────────────
       sendProgress(25, '직무 질문 생성 중...');
       const pass2 = await streamMLX(
-        buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries),
+        buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries, commonQs),
         (p) => sendProgress(25 + Math.floor(p * 0.70), '직무 질문 생성 중...'),
         220, // 직무 3개: ~220자
       );
@@ -383,9 +440,12 @@ app.post('/generate/followup', async (req, res) => {
 
   // 단일 프롬프트: 동문서답 처리 + 심화 꼬리질문 통합
   // 핵심 철학: 답변의 "부족함"이 아닌 "확장 가능성"에서 꼬리질문 생성
+  const context = [jobRole, department].filter(Boolean).join(' / ');
   const followupPrompt =
-    `당신은 ${persona.tone} 어투의 채용 전문 면접관입니다. 한국어로만 답변하세요.\n` +
-    `면접관 스타일: ${persona.desc}\n\n` +
+    `당신은 ${persona.role} 역할의 채용 전문 면접관입니다. 한국어로만 답변하세요.\n` +
+    `면접관 성격: ${persona.tone} — ${persona.desc}\n` +
+    (context ? `직무 맥락: ${context}\n` : '') +
+    `\n` +
     `[면접 질문]\n${question}\n\n` +
     `[지원자 답변]\n${answer}\n\n` +
     `--- 지시 ---\n` +
@@ -407,7 +467,7 @@ app.post('/generate/followup', async (req, res) => {
     `반드시 아래 JSON 형식으로만 응답:\n{"followup":"꼬리질문"}`;
 
   try {
-    const genResult = await callMLX(followupPrompt);
+    const genResult = await callMLX(followupPrompt, { allowTextFallback: true });
     const followup = typeof genResult.followup === 'string' && genResult.followup.length > 5
       ? genResult.followup
       : null;
@@ -483,7 +543,7 @@ app.post('/generate/relevance', async (req, res) => {
 });
 
 app.post('/generate/summary', async (req, res) => {
-  const { resumeText = '', coverText = '' } = req.body;
+  const { resumeText = '', coverText = '', department = '' } = req.body;
 
   const combined = [
     resumeText ? `[이력서]\n${resumeText.trim().substring(0, 3000)}` : '',
@@ -494,45 +554,14 @@ app.post('/generate/summary', async (req, res) => {
     return res.status(400).json({ error: '텍스트가 없습니다.' });
   }
 
-  const prompt = `다음은 지원자의 이력서와 자기소개서입니다.\n\n${combined}\n\n위 내용을 분석하여 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n{"name":"이름 또는 미상","oneLiner":"지원자를 한 줄로 요약","skills":["기술1","기술2","기술3"],"experience":"경력 요약 (없으면 신입)","education":"최종학력 요약","projects":["주요 프로젝트1","주요 프로젝트2"],"strengths":["강점1","강점2","강점3"]}`;
+  const deptHint = department ? `지원 학과/직무: ${department}\n` : '';
+  const prompt = `다음은 지원자의 이력서와 자기소개서입니다.\n${deptHint}\n${combined}\n\n위 내용을 분석하여 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n{"name":"이름 또는 미상","oneLiner":"지원자를 한 줄로 요약","skills":["기술1","기술2","기술3"],"experience":"경력 요약 (없으면 신입)","education":"최종학력 요약","projects":["주요 프로젝트1","주요 프로젝트2"],"strengths":["강점1","강점2","강점3"]}`;
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const send = setupSSE(res);
 
   try {
-    const stream = await client.chat.completions.create({
-      model: MLX_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      stream: true,
-    });
-
-    let fullContent = '';
-    let lastProgress = -1;
-    const ESTIMATED_CHARS = 600; // 요약 JSON: ~600자
-
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content || '';
-      fullContent += delta;
-      if (delta) {
-        const progress = Math.min(Math.floor((fullContent.length / ESTIMATED_CHARS) * 95), 95);
-        if (progress !== lastProgress) {
-          lastProgress = progress;
-          send({ type: 'progress', progress });
-        }
-      }
-    }
-
-    const cleanSummary = fullContent
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
-    const parsed = JSON.parse(cleanSummary);
+    const raw = await streamRaw(prompt, (p) => send({ type: 'progress', progress: p }), 600);
+    const parsed = JSON.parse(cleanMarkdownJSON(raw));
     send({ type: 'done', data: parsed });
   } catch (error) {
     console.error('요약 생성 오류:', error.message);
@@ -550,14 +579,9 @@ function evalAnswerLength(text = '') {
 }
 
 app.post('/generate/report', async (req, res) => {
-  const { questions = [], answers = [], department = '', interviewType = 'mixed' } = req.body;
+  const { questions = [], answers = [], department = '', interviewType = 'mixed', interviewStyle = '' } = req.body;
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const send = setupSSE(res);
 
   const lengthEvals = answers.map(a => evalAnswerLength(a));
 
@@ -576,7 +600,8 @@ app.post('/generate/report', async (req, res) => {
 
 아래 면접 Q&A를 분석하여 지원자에게 구체적이고 실질적인 피드백을 한국어로 제공하세요.
 
-직무/학과: ${department || '미지정'}, 면접 유형: ${interviewType}
+직무/학과: ${department || '미지정'}, 면접 유형: ${interviewType}${interviewStyle ? `, 면접관 스타일: ${interviewStyle}` : ''}
+${interviewStyle ? `면접관 스타일을 고려해 평가하세요. 예: 압박형 면접에서의 짧은 답변은 긴장·압박 대응력으로, 친화형에서의 짧은 답변은 소극성으로 다르게 평가.` : ''}
 
 [면접 Q&A]
 ${qaText}
@@ -598,37 +623,15 @@ ${questionFeedbackExample}
 중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 각 항목은 해당 질문과 답변에 대한 피드백입니다. 모든 점수는 실제 답변 품질을 반영한 0~100 사이 정수입니다.`;
 
   try {
-    const stream = await client.chat.completions.create({
-      model: MLX_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      stream: true,
-      max_tokens: qCount * 400 + 1000,
-    });
+    const ESTIMATED_CHARS = Math.max(2000, qCount * 800);
+    const raw = await streamRaw(
+      prompt,
+      (p) => send({ type: 'progress', progress: p }),
+      ESTIMATED_CHARS,
+      { max_tokens: qCount * 400 + 1000 },
+    );
 
-    let fullContent = '';
-    let lastReportProgress = -1;
-    const ESTIMATED_CHARS = Math.max(2000, qCount * 800); // 리포트: 질문당 ~800자
-
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content || '';
-      fullContent += delta;
-      if (delta) {
-        const progress = Math.min(Math.floor((fullContent.length / ESTIMATED_CHARS) * 95), 95);
-        if (progress !== lastReportProgress) {
-          lastReportProgress = progress;
-          send({ type: 'progress', progress });
-        }
-      }
-    }
-
-    const cleanContent = fullContent
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
-
-    const parsed = JSON.parse(cleanContent);
+    const parsed = JSON.parse(cleanMarkdownJSON(raw));
 
     if (!Array.isArray(parsed.questionFeedback)) parsed.questionFeedback = [];
     while (parsed.questionFeedback.length < qCount) {
