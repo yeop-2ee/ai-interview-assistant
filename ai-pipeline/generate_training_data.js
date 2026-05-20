@@ -185,11 +185,12 @@ async function generateOne(prompt, retries = 2) {
       const res = await generator.chat.completions.create({
         model: GENERATOR_MODEL,
         messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
         temperature: 0.85,
       });
-      const content = res.choices[0].message.content;
-      if (!validate(content)) throw new Error('유효성 검사 실패');
+      const raw = res.choices[0].message.content;
+      const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+      if (!validate(stripped)) throw new Error('유효성 검사 실패');
+      const content = JSON.stringify(JSON.parse(stripped));
       return content;
     } catch (e) {
       if (i === retries) throw e;
@@ -225,19 +226,27 @@ async function main() {
     [combinations[i], combinations[j]] = [combinations[j], combinations[i]];
   }
 
-  // 파일 초기화 (이어쓰기 방지)
-  fs.writeFileSync('data/train.jsonl', '', 'utf8');
-  fs.writeFileSync('data/eval.jsonl',  '', 'utf8');
+  // 완료된 조합 로드 (이어하기)
+  const doneFile = 'data/done.txt';
+  const done = new Set(
+    fs.existsSync(doneFile)
+      ? fs.readFileSync(doneFile, 'utf8').split('\n').filter(Boolean)
+      : []
+  );
+  const remaining = combinations.filter(
+    ({ dept, jobRole, company, level, style, type }) =>
+      !done.has(`${dept}|${jobRole}|${company}|${level}|${style}|${type}`)
+  );
 
-  console.log(`총 ${combinations.length}개 조합 생성 시작 (모델: ${GENERATOR_MODEL})\n`);
+  console.log(`총 ${combinations.length}개 조합 중 ${done.size}개 완료, ${remaining.length}개 남음 (모델: ${GENERATOR_MODEL})\n`);
 
   let success = 0;
   let fail    = 0;
   let trainCount = 0;
   let evalCount  = 0;
 
-  for (let i = 0; i < combinations.length; i++) {
-    const { dept, jobRole, company, level, style, type } = combinations[i];
+  for (let i = 0; i < remaining.length; i++) {
+    const { dept, jobRole, company, level, style, type } = remaining[i];
 
     try {
       const prompt  = buildJobPrompt(dept, jobRole, company, level, style, type);
@@ -258,6 +267,7 @@ async function main() {
         fs.appendFileSync('data/train.jsonl', line + '\n', 'utf8');
         trainCount++;
       }
+      fs.appendFileSync(doneFile, `${dept}|${jobRole}|${company}|${level}|${style}|${type}\n`, 'utf8');
       success++;
     } catch (e) {
       fail++;
@@ -265,8 +275,8 @@ async function main() {
     }
 
     // 진행률 출력
-    if ((i + 1) % 20 === 0 || i + 1 === combinations.length) {
-      const pct = (((i + 1) / combinations.length) * 100).toFixed(1);
+    if ((i + 1) % 20 === 0 || i + 1 === remaining.length) {
+      const pct = (((i + 1) / remaining.length) * 100).toFixed(1);
       console.log(`[${pct}%] ${i + 1}/${combinations.length} — 성공 ${success} / 실패 ${fail}`);
     }
 

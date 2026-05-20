@@ -1,0 +1,14 @@
+FROM ./gguf_output/unsloth.Q4_K_M.gguf
+
+TEMPLATE """<|start_header_id|>system<|end_header_id|>
+
+{{ .System }}<|eot_id|>{{ range .Messages }}<|start_header_id|>{{ .Role }}<|end_header_id|>
+
+{{ .Content }}<|eot_id|>{{ end }}<|start_header_id|>assistant<|end_header_id|>
+
+"""
+
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER stop "<|eot_id|>"
+PARAMETER stop "<|end_of_text|>"
