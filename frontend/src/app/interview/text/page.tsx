@@ -30,7 +30,11 @@ export default function TextInterviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [followupLoading, setFollowupLoading] = useState(false);
 
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportProgress, setReportProgress] = useState(0);
+
   const questionsRef = useRef<string[]>([INTRO_QUESTION]);
+  const answersRef = useRef<string[]>([]);
   const qIdxRef = useRef(0);
   const followupUsedRef = useRef<Set<string>>(new Set());
   const resolvedStyleRef = useRef("friendly");
@@ -121,6 +125,9 @@ export default function TextInterviewPage() {
     setInputText("");
     setSubmitting(true);
 
+    // 답변 기록 (리포트용)
+    answersRef.current = [...answersRef.current, answer];
+
     // 답변 메시지 추가
     setMessages((prev) => [...prev, { role: "user", text: answer }]);
 
@@ -152,8 +159,9 @@ export default function TextInterviewPage() {
     setFollowupLoading(false);
 
     if (followupQ && !followupUsedRef.current.has(currentQ)) {
-      // 꼬리질문 삽입
+      // 꼬리질문 삽입 (꼬리질문 자체도 used로 표시해 재귀 방지)
       followupUsedRef.current.add(currentQ);
+      followupUsedRef.current.add(followupQ);
       const newQs = [...questionsRef.current];
       newQs.splice(qIdxRef.current + 1, 0, followupQ);
       questionsRef.current = newQs;
@@ -182,6 +190,53 @@ export default function TextInterviewPage() {
     }
 
     setSubmitting(false);
+  };
+
+  const handleReport = async () => {
+    setReportLoading(true);
+    setReportProgress(0);
+    const settings = settingsRef.current;
+    try {
+      const res = await fetch(`${BACKEND_URL}/ai/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questions: questionsRef.current,
+          answers: answersRef.current,
+          department: settings.department || "",
+          interviewType: settings.interviewType || "mixed",
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error("리포트 생성 실패");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const event = JSON.parse(line.slice(6));
+          if (event.type === "progress") setReportProgress(event.progress as number);
+          else if (event.type === "done") {
+            const report = event.data;
+            report.questions = questionsRef.current;
+            report.answers = answersRef.current;
+            sessionStorage.setItem("interviewReport", JSON.stringify(report));
+            router.push("/report");
+            return;
+          }
+        }
+      }
+    } catch {
+      alert("리포트 생성에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setReportLoading(false);
+    }
   };
 
   // 로딩 화면
@@ -325,18 +380,31 @@ export default function TextInterviewPage() {
       {phase === "done" && (
         <div className="border-t border-[#1e2130] px-4 py-6 flex flex-col items-center gap-3">
           <p className="text-[#9ca3af] text-[13px]">면접 테스트가 완료되었습니다.</p>
+          {reportLoading && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-48 h-1 bg-[#1e2130] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#4f52e8] rounded-full transition-all duration-300"
+                  style={{ width: `${reportProgress}%` }}
+                />
+              </div>
+              <p className="text-[#6b7280] text-[11px]">리포트 생성 중... {reportProgress}%</p>
+            </div>
+          )}
           <div className="flex gap-2">
             <button
               onClick={() => router.push("/upload")}
-              className="px-5 py-2 rounded-xl border border-[#2a2d3e] text-[#9ca3af] hover:text-white text-[13px] transition-colors"
+              disabled={reportLoading}
+              className="px-5 py-2 rounded-xl border border-[#2a2d3e] text-[#9ca3af] hover:text-white text-[13px] transition-colors disabled:opacity-40"
             >
               처음으로
             </button>
             <button
-              onClick={() => router.push("/interview")}
-              className="px-5 py-2 rounded-xl bg-[#4f52e8] hover:bg-[#3e41d4] text-white text-[13px] font-semibold transition-all"
+              onClick={handleReport}
+              disabled={reportLoading}
+              className="px-5 py-2 rounded-xl bg-[#4f52e8] hover:bg-[#3e41d4] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-semibold transition-all"
             >
-              화상 면접 시작
+              {reportLoading ? "생성 중..." : "리포트 보기"}
             </button>
           </div>
         </div>

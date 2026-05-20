@@ -32,7 +32,7 @@
   ├─ AI 요약 분석 (이름 · 기술스택 · 경력 · 강점)
   └─ 학과 관련성 검사 (불일치 시 경고 + 진행 차단)
         ↓
-AI 맞춤 질문 생성 (MLX LM 2-Pass)
+AI 맞춤 질문 생성 (2-Pass SSE 스트리밍)
   ├─ 공통 질문 2개 (지원동기 · 약점)
   ├─ 직무/인성 질문 3개
   └─ 이력서 기반 질문 2개 (resume/mixed 유형)
@@ -95,13 +95,21 @@ AI 맞춤 질문 생성 (MLX LM 2-Pass)
 
 ### AI Pipeline
 [![Express](https://img.shields.io/badge/Express-4.22.1-000000?logo=express)](https://expressjs.com)
+[![Ollama](https://img.shields.io/badge/Ollama-Linux%2FEC2-white?logo=ollama)](https://ollama.com)
 [![MLX LM](https://img.shields.io/badge/MLX_LM-Apple_Silicon-silver?logo=apple)](https://github.com/ml-explore/mlx-examples)
+
+AI Pipeline은 실행 환경을 자동 감지하여 LLM 런타임을 선택합니다.
+
+| 환경 | LLM 런타임 | 기본 모델 |
+|------|-----------|----------|
+| macOS (Apple Silicon) | mlx-lm (MPS 가속) | mlx-community/Meta-Llama-3.1-8B-Instruct-4bit |
+| Linux / AWS EC2 | Ollama (GPU/CPU) | gemma3:12b (권장) |
 
 | 기술 | 버전 | 용도 |
 |------|------|------|
-| [mlx-lm](https://github.com/ml-explore/mlx-examples) | 0.24.0+ | 로컬 LLM 추론 서버 (Apple Silicon MPS) |
-| [openai](https://github.com/openai/openai-node) | 4.x | MLX 서버 OpenAI 호환 API 클라이언트 |
-| [mlx-community/Meta-Llama-3.1-8B-Instruct-4bit](https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct-4bit) | 4bit | 기본 LLM 모델 |
+| [mlx-lm](https://github.com/ml-explore/mlx-examples) | 0.24.0+ | 로컬 LLM 추론 서버 (macOS MPS) |
+| [Ollama](https://ollama.com) | latest | 로컬 LLM 추론 서버 (Linux/GPU) |
+| [openai](https://github.com/openai/openai-node) | 4.x | OpenAI 호환 API 클라이언트 |
 | [Express](https://expressjs.com) | 4.22.1 | API 서버 + SSE 스트리밍 |
 
 **AI 생성 엔드포인트**
@@ -123,7 +131,7 @@ AI 맞춤 질문 생성 (MLX LM 2-Pass)
 | [Express](https://expressjs.com) | 4.22.1 | API 라우팅 |
 | [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) | large-v3-turbo | 음성→텍스트 (Apple Silicon MPS) |
 | [edge-tts](https://github.com/rany2/edge-tts) | ko-KR-SunHiNeural | 텍스트→음성 |
-| [Wav2Lip](https://github.com/Rudrabha/Wav2Lip) | - | 립싱크 영상 생성 (MPS 가속) |
+| [Wav2Lip](https://github.com/Rudrabha/Wav2Lip) | - | 립싱크 영상 생성 |
 | [ffmpeg](https://ffmpeg.org) | - | 오디오·영상 전처리 |
 | [aws-sdk](https://github.com/aws/aws-sdk-js) | 2.1693.0 | AWS 서비스 연동 |
 | [multer](https://github.com/expressjs/multer) | 1.4.5-lts.2 | 파일 업로드 |
@@ -224,12 +232,12 @@ ai-interview-assistant/
 
 ---
 
-## 시작하기
+## 시작하기 (로컬 개발)
 
 ### 사전 요구사항
 
-| 항목 | macOS (Apple Silicon) | Windows |
-|------|----------------------|---------|
+| 항목 | macOS (Apple Silicon) | Linux |
+|------|----------------------|-------|
 | Node.js | 18+ | 18+ |
 | Python | 3.9+ | 3.9+ |
 | PostgreSQL | 필요 | 필요 |
@@ -266,7 +274,7 @@ cd ../media-service && npm install
 # Python 패키지 — macOS
 pip install mlx-lm mlx-whisper edge-tts
 
-# Python 패키지 — Windows
+# Python 패키지 — Linux
 pip install faster-whisper edge-tts torch
 ```
 
@@ -284,6 +292,12 @@ DATABASE_URL=postgresql://user:password@localhost:5432/ai_interview
 JWT_SECRET=your_jwt_secret
 AI_SERVER_URL=http://localhost:5050
 MEDIA_SERVER_URL=http://localhost:4000
+```
+
+**ai-pipeline/.env** (Linux / Ollama 사용 시)
+```env
+PORT=5050
+LLM_MODEL=gemma3:12b
 ```
 
 **media-service/.env**
@@ -309,14 +323,17 @@ npx prisma generate
 cd ai-pipeline && bash start_mlx_server.sh
 ```
 
-**Windows — Ollama**
+**Linux — Ollama**
 
-```powershell
-cd ai-pipeline
-powershell -ExecutionPolicy Bypass -File start_ollama_server.ps1
+```bash
+# Ollama 설치 (최초 1회)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 모델 다운로드 (권장: gemma3:12b)
+ollama pull gemma3:12b
+
+# Ollama 서버는 설치 시 자동 실행됨
 ```
-
-모델은 첫 실행 시 자동으로 다운로드됩니다 (~4GB).
 
 ### 6. 서버 실행
 
@@ -332,9 +349,131 @@ cd backend && npx ts-node src/server.ts # http://localhost:3001
 # 3. 미디어 서비스
 cd media-service && npm start           # http://localhost:4000
 
-# 4. AI 파이프라인 (MLX 서버 실행 후)
+# 4. AI 파이프라인
 cd ai-pipeline && node aiServer.js      # http://localhost:5050
 ```
+
+---
+
+## AWS EC2 배포 가이드
+
+### 인프라 구성
+
+| 구성 요소 | 사양 |
+|----------|------|
+| EC2 인스턴스 | g4dn.xlarge (Tesla T4 16GB GPU, 4 vCPU, 16GB RAM) |
+| OS | Amazon Linux 2023 |
+| 데이터베이스 | Amazon RDS PostgreSQL |
+| 프로세스 관리 | PM2 |
+| 리버스 프록시 | Nginx |
+| LLM 런타임 | Ollama (GPU 가속) |
+| 권장 LLM 모델 | gemma3:12b |
+
+### Nginx 설정 (`/etc/nginx/conf.d/app.conf`)
+
+```nginx
+server {
+    client_max_body_size 20m;
+    listen 80;
+    server_name _;
+
+    location /api/ {
+        proxy_pass http://localhost:3001/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+    location /ai/ {
+        proxy_pass http://localhost:5050/;
+        proxy_set_header Host $host;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_buffering off;
+    }
+    location /media/ {
+        proxy_pass http://localhost:4000/;
+        proxy_set_header Host $host;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection upgrade;
+        proxy_read_timeout 300s;
+    }
+}
+```
+
+### EC2 환경변수
+
+**backend/.env**
+```env
+PORT=3001
+DATABASE_URL=postgresql://user:password@your-rds-endpoint:5432/ai_interview?sslmode=no-verify
+AI_SERVER_URL=http://localhost:5050
+```
+
+**frontend/.env.local**
+```env
+NEXT_PUBLIC_BACKEND_URL=http://<EC2-PUBLIC-IP>/api
+NEXT_PUBLIC_MEDIA_API=http://<EC2-PUBLIC-IP>/media
+```
+
+**ai-pipeline/.env**
+```env
+PORT=5050
+LLM_MODEL=gemma3:12b
+```
+
+### PM2 실행
+
+```bash
+# 백엔드
+pm2 start "npx ts-node src/server.ts" --name backend --cwd /data/app/backend
+
+# AI 파이프라인
+cd /data/app/ai-pipeline && pm2 start aiServer.js --name ai-pipeline
+
+# 미디어 서비스
+pm2 start "node mediaServer.js" --name media-service --cwd /data/app/media-service
+
+# 프론트엔드
+pm2 start "npm run start" --name frontend --cwd /data/app/frontend
+
+# 재시작 시 자동 실행 등록
+pm2 save && pm2 startup
+```
+
+### Ollama GPU 설정
+
+```bash
+# NVIDIA 드라이버 설치 확인
+nvidia-smi
+
+# Ollama 설치
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 모델 다운로드
+ollama pull gemma3:12b
+
+# GPU 사용 확인 (ollama 프로세스가 GPU 메모리를 점유하면 정상)
+nvidia-smi
+```
+
+### LLM 모델 선택 가이드 (Tesla T4 16GB 기준)
+
+| 모델 | VRAM 사용량 | 특징 |
+|------|------------|------|
+| `gemma3:12b` | ~8GB | 권장 — 한국어 양호, 추론 우수 |
+| `llama3.2:11b` | ~8GB | 멀티모달 지원 |
+| `gemma3:9b` | ~5GB | 가볍고 빠름 |
+| `phi4` | ~9GB | Microsoft 14B, 추론 강함 |
+| `gemma3:27b` | ~17GB | VRAM 초과로 사용 불가 |
 
 ---
 
@@ -363,7 +502,7 @@ cd ai-pipeline && node aiServer.js      # http://localhost:5050
 ### 면접관 아바타
 
 - 면접관 스타일(친절·압박·교수형·실무형)에 따라 다른 아바타 이미지 사용
-- Wav2Lip 립싱크 영상 실시간 생성 (Apple Silicon MPS 가속)
+- Wav2Lip 립싱크 영상 실시간 생성
 - ffmpeg unsharp 필터로 화질 보정
 
 ### AI 꼬리질문 생성
