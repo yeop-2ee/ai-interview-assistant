@@ -181,8 +181,7 @@ export default function Home() {
                 모든 기능을<br />무료로 이용하세요
               </h2>
               <p className="text-[15px] text-[#6b7280] mb-8 leading-relaxed">
-                회원가입 없이도 바로 시작할 수 있습니다.
-                더 많은 기능은 로그인 후 이용 가능합니다.
+                회원가입 후 로그인하면 모든 기능을 무료로 이용할 수 있습니다.
               </p>
               <StartButton />
             </ScrollReveal>
