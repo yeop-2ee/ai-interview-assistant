@@ -10,6 +10,7 @@ function validateString(val: unknown, maxLen: number): string {
 
 // POST /ai/summary — 이력서 요약 (SSE)
 router.post("/summary", async (req: Request, res: Response) => {
+  console.log("[summary] 요청 수신")
   res.setHeader("Content-Type", "text/event-stream")
   res.setHeader("Cache-Control", "no-cache")
   res.setHeader("Connection", "keep-alive")
@@ -24,6 +25,7 @@ router.post("/summary", async (req: Request, res: Response) => {
   }
 
   try {
+    console.log("[summary] AI 서버 요청 중...")
     const aiRes = await fetch(`${AI_SERVER_URL()}/generate/summary`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,6 +48,7 @@ router.post("/summary", async (req: Request, res: Response) => {
       }
     }
   } catch (e) {
+    console.error("[summary] 오류:", e instanceof Error ? e.message : e)
     send({ type: "error", message: e instanceof Error ? e.message : "오류" })
   }
   res.end()
