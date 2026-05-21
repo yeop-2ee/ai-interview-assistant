@@ -28,7 +28,7 @@ router.post("/summary", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(300000),
     })
     if (!aiRes.ok || !aiRes.body) throw new Error(`AI 서버 오류: ${aiRes.status}`)
 
@@ -66,7 +66,7 @@ router.post("/relevance", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(300000),
     })
     const data = await aiRes.json()
     console.log("[relevance proxy] AI응답:", JSON.stringify(data))
