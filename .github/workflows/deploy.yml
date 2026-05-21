@@ -17,25 +17,25 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
-            cd /data/app
+            cd /home/ec2-user/app
             git pull origin main
 
             # 프론트엔드 의존성 및 빌드
-            cd /data/app/frontend
+            cd /home/ec2-user/app/frontend
             npm install
             npm run build
 
             # 백엔드 의존성 및 DB 마이그레이션
-            cd /data/app/backend
+            cd /home/ec2-user/app/backend
             npm install
             npx prisma migrate deploy
 
             # AI 파이프라인 의존성
-            cd /data/app/ai-pipeline
+            cd /home/ec2-user/app/ai-pipeline
             npm install
 
             # 미디어 서비스 의존성
-            cd /data/app/media-service
+            cd /home/ec2-user/app/media-service
             npm install
 
             # PM2 재시작
