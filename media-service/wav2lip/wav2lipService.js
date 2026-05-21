@@ -11,7 +11,7 @@ const PYTHON_PATH = process.env.PYTHON_PATH
 const W2L_RUNNER_PATH = path.join(__dirname, 'wav2lip_runner.py');
 const W2L_SERVER_PATH = path.join(__dirname, 'wav2lip_server.py');
 const FRONTEND_PUBLIC_DIR = path.join(__dirname, '../../frontend/public');
-const DEFAULT_AVATAR_PATH = path.join(FRONTEND_PUBLIC_DIR, 'avatar.png');
+const DEFAULT_AVATAR_PATH = path.join(FRONTEND_PUBLIC_DIR, 'avatars/friendly.png');
 const OUTPUT_DIR = path.join(__dirname, '../temp/wav2lip');
 const W2L_SERVER_PORT = 19876;
 
@@ -184,7 +184,7 @@ function cleanOldSessions() {
 setInterval(cleanOldSessions, 30 * 60 * 1000); // 30분마다 실행
 
 router.post('/synthesize', async (req, res) => {
-  const { text, voice = 'ko-KR-SunHiNeural', imagePath = '/avatar.png', sessionId } = req.body || {};
+  const { text, voice = 'ko-KR-SunHiNeural', imagePath = '/avatars/friendly.png', sessionId } = req.body || {};
   if (!text || !String(text).trim()) {
     return res.status(400).json({ error: 'text가 없습니다.' });
   }
