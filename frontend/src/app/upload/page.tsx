@@ -292,6 +292,10 @@ export default function UploadPage() {
   const lastSummaryRef = useRef<Summary | null>(null);
 
   useEffect(() => {
+    // 페이지 진입 시 이전 이력서 데이터 초기화
+    sessionStorage.removeItem("resumeText");
+    sessionStorage.removeItem("coverText");
+
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 3000);
     fetch(`${BACKEND_URL}/`, { signal: ctrl.signal })
