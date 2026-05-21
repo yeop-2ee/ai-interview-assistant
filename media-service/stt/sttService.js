@@ -18,7 +18,13 @@ const STT_TIMEOUT_MS = 5 * 60 * 1000; // 5분
 
 function runTranscribe(audioPath) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(PYTHON_PATH, [RUNNER_PATH, audioPath]);
+    const proc = spawn(PYTHON_PATH, [RUNNER_PATH, audioPath], {
+      env: {
+        ...process.env,
+        PYTHONPATH: process.env.PYTHONPATH || '/home/ec2-user/.local/lib/python3.9/site-packages',
+        HOME: process.env.HOME || '/home/ec2-user',
+      },
+    });
     let output = '';
     let errOutput = '';
 

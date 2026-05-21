@@ -23,7 +23,13 @@ if (!fs.existsSync(TTS_OUTPUT_DIR)) {
  */
 function runTTS(text, outputPath, voice) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(PYTHON_PATH, ['-X', 'utf8', RUNNER_PATH, text, outputPath, voice]);
+    const proc = spawn(PYTHON_PATH, ['-X', 'utf8', RUNNER_PATH, text, outputPath, voice], {
+      env: {
+        ...process.env,
+        PYTHONPATH: process.env.PYTHONPATH || '/home/ec2-user/.local/lib/python3.9/site-packages',
+        HOME: process.env.HOME || '/home/ec2-user',
+      },
+    });
 
     let output = '';
     let errorOutput = '';
