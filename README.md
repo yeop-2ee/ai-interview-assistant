@@ -95,20 +95,17 @@ AI 맞춤 질문 생성 (2-Pass SSE 스트리밍)
 
 ### AI Pipeline
 [![Express](https://img.shields.io/badge/Express-4.22.1-000000?logo=express)](https://expressjs.com)
-[![Ollama](https://img.shields.io/badge/Ollama-Linux%2FEC2-white?logo=ollama)](https://ollama.com)
-[![MLX LM](https://img.shields.io/badge/MLX_LM-Apple_Silicon-silver?logo=apple)](https://github.com/ml-explore/mlx-examples)
+[![Ollama](https://img.shields.io/badge/Ollama-macOS%2FWindows%2FLinux-white?logo=ollama)](https://ollama.com)
 
-AI Pipeline은 실행 환경을 자동 감지하여 LLM 런타임을 선택합니다.
+AI Pipeline은 모든 플랫폼에서 **Ollama + gemma3:12b**를 사용합니다.
 
 | 환경 | LLM 런타임 | 기본 모델 |
 |------|-----------|----------|
-| macOS (Apple Silicon) | mlx-lm (MPS 가속) | mlx-community/Meta-Llama-3.1-8B-Instruct-4bit |
-| Linux / AWS EC2 | Ollama (GPU/CPU) | gemma3:12b (권장) |
+| macOS / Windows / Linux | Ollama (GPU/CPU) | gemma3:12b |
 
 | 기술 | 버전 | 용도 |
 |------|------|------|
-| [mlx-lm](https://github.com/ml-explore/mlx-examples) | 0.24.0+ | 로컬 LLM 추론 서버 (macOS MPS) |
-| [Ollama](https://ollama.com) | latest | 로컬 LLM 추론 서버 (Linux/GPU) |
+| [Ollama](https://ollama.com) | latest | 로컬 LLM 추론 서버 (전 플랫폼) |
 | [openai](https://github.com/openai/openai-node) | 4.x | OpenAI 호환 API 클라이언트 |
 | [Express](https://expressjs.com) | 4.22.1 | API 서버 + SSE 스트리밍 |
 
@@ -236,16 +233,16 @@ ai-interview-assistant/
 
 ### 사전 요구사항
 
-| 항목 | macOS (Apple Silicon) | Linux |
-|------|----------------------|-------|
-| Node.js | 18+ | 18+ |
-| Python | 3.9+ | 3.9+ |
-| PostgreSQL | 필요 | 필요 |
-| LLM 런타임 | mlx-lm | Ollama |
-| STT | mlx-whisper | faster-whisper |
-| TTS | edge-tts | edge-tts |
-| ffmpeg | 필요 | 필요 |
-| Wav2Lip | 선택 (fallback 가능) | 선택 (fallback 가능) |
+| 항목 | macOS | Windows | Linux |
+|------|-------|---------|-------|
+| Node.js | 18+ | 18+ | 18+ |
+| Python | 3.9+ | 3.9+ | 3.9+ |
+| PostgreSQL | 필요 | 필요 | 필요 |
+| LLM 런타임 | Ollama | Ollama | Ollama |
+| STT | mlx-whisper | faster-whisper | faster-whisper |
+| TTS | edge-tts | edge-tts | edge-tts |
+| ffmpeg | 필요 | 필요 | 필요 |
+| Wav2Lip | 선택 (fallback 가능) | 선택 (fallback 가능) | 선택 (fallback 가능) |
 
 ### 1. 저장소 클론
 
@@ -272,9 +269,9 @@ cd ../media-service && npm install
 
 ```bash
 # Python 패키지 — macOS
-pip install mlx-lm mlx-whisper edge-tts
+pip install mlx-whisper edge-tts
 
-# Python 패키지 — Linux
+# Python 패키지 — Windows / Linux
 pip install faster-whisper edge-tts torch
 ```
 
@@ -294,7 +291,7 @@ AI_SERVER_URL=http://localhost:5050
 MEDIA_SERVER_URL=http://localhost:4000
 ```
 
-**ai-pipeline/.env** (Linux / Ollama 사용 시)
+**ai-pipeline/.env**
 ```env
 PORT=5050
 LLM_MODEL=gemma3:12b
@@ -315,24 +312,27 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-### 5. LLM 서버 시작
+### 5. LLM 서버 시작 (Ollama — 전 플랫폼 공통)
 
-**macOS — MLX LM Server**
-
-```bash
-cd ai-pipeline && bash start_mlx_server.sh
-```
-
-**Linux — Ollama**
+**macOS / Linux**
 
 ```bash
 # Ollama 설치 (최초 1회)
 curl -fsSL https://ollama.com/install.sh | sh
 
-# 모델 다운로드 (권장: gemma3:12b)
+# 모델 다운로드
 ollama pull gemma3:12b
 
 # Ollama 서버는 설치 시 자동 실행됨
+```
+
+**Windows**
+
+```bash
+# https://ollama.com 에서 설치 파일 다운로드 후 실행
+
+# 모델 다운로드 (PowerShell 또는 cmd)
+ollama pull gemma3:12b
 ```
 
 ### 6. 서버 실행

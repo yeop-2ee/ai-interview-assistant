@@ -2,21 +2,16 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
-import { platform } from 'os';
 
-const IS_MAC = platform() === 'darwin';
-
-const DEFAULT_LLM_URL = IS_MAC ? 'http://localhost:8080' : 'http://localhost:11434';
-const DEFAULT_LLM_MODEL = IS_MAC
-  ? 'mlx-community/Meta-Llama-3.1-8B-Instruct-4bit'
-  : 'llama3.1:8b';
+const DEFAULT_LLM_URL = 'http://localhost:11434';
+const DEFAULT_LLM_MODEL = 'gemma3:12b';
 
 const MLX_SERVER_URL = process.env.LLM_SERVER_URL || process.env.MLX_SERVER_URL || DEFAULT_LLM_URL;
 const MLX_MODEL = process.env.LLM_MODEL || process.env.MLX_MODEL || DEFAULT_LLM_MODEL;
 
 const client = new OpenAI({
   baseURL: `${MLX_SERVER_URL}/v1`,
-  apiKey: IS_MAC ? 'mlx' : 'ollama',
+  apiKey: 'ollama',
 });
 
 const app = express();
@@ -662,13 +657,12 @@ app.get('/health', (_, res) => res.json({ ok: true }));
 const PORT = Number(process.env.PORT) || 5050;
 app.listen(PORT, async () => {
   console.log(`AI pipeline server on port ${PORT}`);
-  const serverType = IS_MAC ? 'MLX LM' : 'Ollama';
-  console.log(`LLM 서버: ${MLX_SERVER_URL} (${serverType}) | 모델: ${MLX_MODEL}`);
+  console.log(`LLM 서버: ${MLX_SERVER_URL} (Ollama) | 모델: ${MLX_MODEL}`);
   try {
     console.log('LLM 서버 연결 확인 중...');
     await callMLX('안녕');
     console.log('LLM 서버 연결 완료');
   } catch (e) {
-    console.warn(`LLM 서버 연결 실패 (${serverType}가 실행 중인지 확인):`, e.message);
+    console.warn(`LLM 서버 연결 실패 (Ollama가 실행 중인지 확인):`, e.message);
   }
 });
