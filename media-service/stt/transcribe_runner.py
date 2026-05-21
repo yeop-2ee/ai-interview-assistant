@@ -13,19 +13,19 @@ import platform
 import subprocess
 import tempfile
 
-IS_WINDOWS = platform.system() == 'Windows'
+IS_MAC = platform.system() == 'Darwin'
 
-if IS_WINDOWS:
-    try:
-        from faster_whisper import WhisperModel
-    except ImportError:
-        print(json.dumps({"error": "faster-whisper가 설치되지 않았습니다. pip install faster-whisper 실행 후 재시도하세요."}))
-        sys.exit(1)
-else:
+if IS_MAC:
     try:
         import mlx_whisper
     except ImportError:
         print(json.dumps({"error": "mlx-whisper가 설치되지 않았습니다. pip install mlx-whisper 실행 후 재시도하세요."}))
+        sys.exit(1)
+else:
+    try:
+        from faster_whisper import WhisperModel
+    except ImportError:
+        print(json.dumps({"error": "faster-whisper가 설치되지 않았습니다. pip install faster-whisper 실행 후 재시도하세요."}))
         sys.exit(1)
 
 HALLUCINATION_PHRASES = [
@@ -127,10 +127,10 @@ def transcribe(audio_path: str) -> dict:
         transcribe_path = audio_path
 
     try:
-        if IS_WINDOWS:
-            result = transcribe_windows(transcribe_path)
-        else:
+        if IS_MAC:
             result = transcribe_macos(transcribe_path)
+        else:
+            result = transcribe_windows(transcribe_path)
     finally:
         if wav_path and os.path.exists(wav_path):
             os.unlink(wav_path)
