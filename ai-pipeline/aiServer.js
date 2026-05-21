@@ -95,6 +95,7 @@ async function streamRaw(prompt, onProgress, estimatedChars = 400, extraOptions 
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     stream: true,
+    max_tokens: 4096,
     ...extraOptions,
   });
   let fullContent = '';
@@ -140,6 +141,7 @@ async function callMLX(prompt, { allowTextFallback = false } = {}) {
     ],
     response_format: { type: 'json_object' },
     stream: false,
+    max_tokens: 4096,
   });
   const raw = result.choices[0].message.content;
   try {
