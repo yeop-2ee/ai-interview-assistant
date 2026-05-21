@@ -538,6 +538,7 @@ app.post('/generate/relevance', async (req, res) => {
 });
 
 app.post('/generate/summary', async (req, res) => {
+  console.log('[summary] 요청 수신');
   const { resumeText = '', coverText = '', department = '' } = req.body;
 
   const combined = [
