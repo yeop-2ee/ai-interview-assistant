@@ -95,11 +95,12 @@ def transcribe_macos(audio_path: str) -> dict:
 
 
 def transcribe_windows(audio_path: str) -> dict:
-    """Windows: faster-whisper 사용 (CPU / CUDA)"""
+    """Windows/Linux: faster-whisper 사용 (CPU / CUDA)"""
     try:
         import torch
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    except ImportError:
+        import ctranslate2
+        device = "cuda" if torch.cuda.is_available() and ctranslate2.get_cuda_device_count() > 0 else "cpu"
+    except Exception:
         device = "cpu"
     compute = "float16" if device == "cuda" else "int8"
     model_size = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
