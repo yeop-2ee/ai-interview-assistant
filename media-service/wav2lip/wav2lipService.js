@@ -84,7 +84,13 @@ function callWav2LipServer(facePath, audioPath, outputPath) {
 function runTTS(text, outputPath, voice) {
   const ttsRunner = path.join(__dirname, '../tts/tts_runner.py');
   return new Promise((resolve, reject) => {
-    const proc = spawn(PYTHON_PATH, ['-X', 'utf8', ttsRunner, text, outputPath, voice]);
+    const proc = spawn(PYTHON_PATH, ['-X', 'utf8', ttsRunner, text, outputPath, voice], {
+      env: {
+        ...process.env,
+        PYTHONPATH: process.env.PYTHONPATH || '/home/ec2-user/.local/lib/python3.9/site-packages',
+        HOME: process.env.HOME || '/home/ec2-user',
+      },
+    });
     let output = '';
     let errorOutput = '';
 
