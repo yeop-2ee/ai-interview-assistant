@@ -80,8 +80,9 @@ router.post("/relevance", async (req: Request, res: Response) => {
   }
 })
 
-// POST /ai/followup — 꼬리질문 생성
+// POST /ai/followup — 꼬리질문 생성 (임시 비활성화)
 router.post("/followup", async (req: Request, res: Response) => {
+  return res.json({ followup: null })
   const body = {
     question:        validateString(req.body.question,        500),
     answer:          validateString(req.body.answer,          500),
