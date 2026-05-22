@@ -30,6 +30,8 @@ else:
     except ImportError:
         print(json.dumps({"error": "faster-whisper가 설치되지 않았습니다. pip install faster-whisper 실행 후 재시도하세요."}))
         sys.exit(1)
+        
+HALLUCINATION_BLACKLIST = ["한글자막 by 한글검수", ] 
 
 NO_SPEECH_THRESHOLD = 0.6
 AVG_LOGPROB_THRESHOLD = -1.0
@@ -38,6 +40,9 @@ AVG_LOGPROB_THRESHOLD = -1.0
 def postprocess(text: str) -> str:
     if not text:
         return text
+    for phrase in HALLUCINATION_BLACKLIST:
+        if phrase in text:
+            return ""
     text = re.sub(r'(.{6,})\1+', r'\1', text)
     text = re.sub(r'\s{2,}', ' ', text).strip()
     return text
