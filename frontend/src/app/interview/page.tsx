@@ -21,10 +21,11 @@ function now() {
 type Msg = { id?: number; role: "ai" | "user"; text: string; time: string };
 
 /* ── AI 아바타 ── */
-function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, avatarSrc }: {
+function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatarSrc }: {
   speaking: boolean;
   lipVideoSrc: string | null;
   onVideoEnded: () => void;
+  onVideoMetadata?: (durationMs: number) => void;
   avatarSrc?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,6 +61,7 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, avatarSrc }: {
           controls={false}
           disablePictureInPicture
           disableRemotePlayback
+          onLoadedMetadata={() => { if (videoRef.current && onVideoMetadata) onVideoMetadata(videoRef.current.duration * 1000); }}
           onEnded={onVideoEnded}
           onError={onVideoEnded}
           onPause={handlePause}
@@ -662,6 +664,8 @@ export default function InterviewPage() {
   const [recording, setRecording] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [aiSpeakingText, setAiSpeakingText] = useState("");
+  const [aiDisplayText, setAiDisplayText] = useState("");
+  const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [camError, setCamError] = useState(false);
   const [layout, setLayout] = useState<"split" | "pip" | "full">("pip");
@@ -941,17 +945,42 @@ export default function InterviewPage() {
   }, [sessionId]);
 
   // 사전 렌더링 영상 재생 완료 시 호출
+  const startTypewriter = useCallback((text: string, durationMs: number) => {
+    if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+    setAiDisplayText("");
+    const msPerChar = Math.max(35, Math.min(180, durationMs / text.length));
+    let i = 0;
+    typewriterTimerRef.current = setInterval(() => {
+      i++;
+      setAiDisplayText(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(typewriterTimerRef.current!);
+        typewriterTimerRef.current = null;
+      }
+    }, msPerChar);
+  }, []);
+
+  const stopTypewriter = useCallback(() => {
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+    setAiDisplayText("");
+  }, []);
+
   const handleAvatarVideoEnded = useCallback(() => {
+    stopTypewriter();
     setAiSpeaking(false);
     setAiSpeakingText("");
     setLipVideoSrc(null);
     if (phaseRef.current === "call" && !document.hidden) startListening();
-  }, [startListening]);
+  }, [startListening, stopTypewriter]);
 
   const speakText = useCallback(async (text: string) => {
     setAiSpeakingText(text);
+    stopTypewriter();
 
-    // 1. 백그라운드에서 생성된 추가질문 Wav2Lip 영상
+    // 1. 백그라운드에서 생성된 추가질문 Wav2Lip 영상 (타이프라이터는 onVideoMetadata 콜백에서 시작)
     const dynamicVideo = additionalVideosRef.current[text];
     if (dynamicVideo) {
       setAiSpeaking(true);
@@ -959,7 +988,7 @@ export default function InterviewPage() {
       return;
     }
 
-    // 3. fallback: TTS API
+    // 2. fallback: TTS API
     try {
       setAiSpeaking(true);
       const res = await fetch(`${MEDIA_API}/api/tts/synthesize`, {
@@ -969,6 +998,7 @@ export default function InterviewPage() {
       });
       const data = await res.json();
       if (!data.success) {
+        stopTypewriter();
         setAiSpeaking(false);
         setAiSpeakingText("");
         if (phaseRef.current === "call" && !document.hidden) startListening();
@@ -979,8 +1009,20 @@ export default function InterviewPage() {
         await (audio as any).setSinkId(callSelectedSpeakerIdRef.current).catch(() => {});
       }
       audioRef.current = audio;
+      // 메타데이터 로드 후 재생 시간 기반 타이프라이터 시작
+      const onMeta = () => {
+        if (isFinite(audio.duration) && audio.duration > 0) {
+          startTypewriter(text, audio.duration * 1000);
+        }
+      };
+      if (audio.readyState >= 1 && isFinite(audio.duration)) {
+        onMeta();
+      } else {
+        audio.addEventListener("loadedmetadata", onMeta, { once: true });
+      }
       audio.onended = () => {
         audioRef.current = null;
+        stopTypewriter();
         setAiSpeaking(false);
         setAiSpeakingText("");
         setLipVideoSrc(null);
@@ -988,17 +1030,19 @@ export default function InterviewPage() {
       };
       audio.onerror = () => {
         audioRef.current = null;
+        stopTypewriter();
         setAiSpeaking(false);
         setAiSpeakingText("");
         setLipVideoSrc(null);
       };
       await audio.play();
     } catch {
+      stopTypewriter();
       setAiSpeaking(false);
       setAiSpeakingText("");
       if (phaseRef.current === "call" && !document.hidden) startListening();
     }
-  }, [startListening]);
+  }, [startListening, startTypewriter, stopTypewriter]);
 
   useEffect(() => { speakTextRef.current = speakText; }, [speakText]);
 
@@ -1221,7 +1265,7 @@ export default function InterviewPage() {
             style={{ flex: layout === "split" ? (splitRatio === "7:3" ? 7 : splitRatio === "3:7" ? 3 : 1) : 1 }}
           >
             <div className="flex-1 flex items-center justify-center">
-              <AIAvatar speaking={aiSpeaking} lipVideoSrc={lipVideoSrc} onVideoEnded={handleAvatarVideoEnded} avatarSrc={avatarSrc} />
+              <AIAvatar speaking={aiSpeaking} lipVideoSrc={lipVideoSrc} onVideoEnded={handleAvatarVideoEnded} onVideoMetadata={(ms) => startTypewriter(aiSpeakingText, ms)} avatarSrc={avatarSrc} />
             </div>
 
 
@@ -1234,13 +1278,13 @@ export default function InterviewPage() {
             </div>
 
             {/* 자막 */}
-            {aiSpeaking && aiSpeakingText && (
+            {aiSpeaking && aiDisplayText && (
               <div
                 className="absolute bottom-0 left-0 right-0 pt-12 pb-4 bg-gradient-to-t from-black/75 via-black/40 to-transparent pointer-events-none transition-all"
                 style={{ paddingLeft: "20px", paddingRight: layout === "pip" ? "200px" : "20px" }}
               >
                 <p className="text-white text-[14px] font-semibold leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-                  {aiSpeakingText}
+                  {aiDisplayText}
                 </p>
               </div>
             )}
