@@ -978,9 +978,10 @@ export default function InterviewPage() {
     let totalWeight = 0;
     for (let i = 0; i < text.length; i++) totalWeight += getWeight(text[i], text[i - 1] ?? '');
 
-    // TTS 시작 무음(50ms) + 실제 발화 구간의 0.88배 (말보다 약간 앞서 완성)
+    // TTS 시작 무음 50ms, 끝 무음 50ms 제외 — 나머지 구간에 정확히 1:1 매핑
     const startDelay = 50;
-    const speakDuration = Math.max(400, (durationMs - startDelay) * 0.88);
+    const endSilence = 50;
+    const speakDuration = Math.max(400, durationMs - startDelay - endSilence);
     const baseUnit = speakDuration / totalWeight;
 
     // 글자마다 개별 setTimeout — 미세 지터(±8%) 추가로 기계적 느낌 제거
