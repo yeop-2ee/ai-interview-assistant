@@ -1174,10 +1174,12 @@ export default function InterviewPage() {
   const fmtTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  // 답변 분석 중(sttLoading)에는 다음 질문 번호로 미리 표시
-  const displayQIdx = sttLoading && pendingAnswer !== null
-    ? Math.min(qIdx + 1, questionsRef.current.length)
-    : qIdx;
+  // 답변 분석 중(sttLoading)에는 다음 질문 번호로 미리 표시, 종료 시엔 전체 수 표시
+  const displayQIdx = phase === "done"
+    ? questionsRef.current.length
+    : sttLoading && pendingAnswer !== null
+      ? Math.min(qIdx + 1, questionsRef.current.length)
+      : qIdx;
   const progress = Math.round((displayQIdx / questionsRef.current.length) * 100);
   const currentQ = questionsRef.current[Math.min(qIdx, questionsRef.current.length - 1)];
   const currentCategory = questionCategories[qIdx] ?? (qIdx === 0 ? "소개" : "면접");

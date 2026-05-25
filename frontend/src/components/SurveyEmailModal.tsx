@@ -41,18 +41,20 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
     feedback.trim() ? { label: "개선 의견", value: feedback.trim() } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
-  // 1단계: 설문 제출
-  const handleSurveySubmit = async () => {
+  // 1단계: 설문 제출 (설문 데이터 있으면 저장, 없으면 그냥 다음 단계)
+  const handleSurveySubmit = async (skip = false) => {
     if (surveySubmitting) return;
-    setSurveySubmitting(true);
-    try {
-      await fetch(`${BACKEND_URL}/email/send-results`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: null, questions: [], answers: [], surveys: buildSurveys() }),
-      });
-    } catch { /* ignore */ }
-    finally { setSurveySubmitting(false); }
+    if (!skip) {
+      setSurveySubmitting(true);
+      try {
+        await fetch(`${BACKEND_URL}/email/send-results`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: null, questions: [], answers: [], surveys: buildSurveys() }),
+        });
+      } catch { /* ignore */ }
+      finally { setSurveySubmitting(false); }
+    }
     setStep("email");
   };
 
@@ -96,7 +98,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
                 {step === "done" && "메일이 전송되었습니다!"}
               </h2>
               <p className="text-[12.5px] text-[#6b7280] mt-1.5">
-                {step === "survey" && "리포트 작성 중에 잠깐 응답해주세요. 서비스 개선에 큰 도움이 됩니다."}
+                {step === "survey" && "모든 항목은 선택사항입니다. 응답해주시면 서비스 개선에 큰 도움이 됩니다."}
                 {step === "email" && "오늘 주고받은 질문과 답변을 이메일로 보내드려요."}
                 {step === "done" && `${email} 로 면접 결과를 보내드렸어요.`}
               </p>
@@ -142,6 +144,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-5 h-5 rounded-full bg-[#eef0fd] text-[#4f52e8] text-[10px] font-bold flex items-center justify-center flex-shrink-0">1</span>
                   <p className="text-[13px] font-semibold text-[#1f2937]">이번 면접의 목적은 무엇인가요?</p>
+                  <span className="text-[10.5px] text-[#9ca3af] font-medium ml-auto flex-shrink-0">선택</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {PURPOSE_OPTIONS.map((opt) => (
@@ -159,6 +162,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-5 h-5 rounded-full bg-[#eef0fd] text-[#4f52e8] text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
                   <p className="text-[13px] font-semibold text-[#1f2937]">생성된 면접 질문이 나에게 도움이 되었나요?</p>
+                  <span className="text-[10.5px] text-[#9ca3af] font-medium ml-auto flex-shrink-0">선택</span>
                 </div>
                 <div className="flex gap-2">
                   {QUESTION_QUALITY_LEVELS.map(({ score, label }) => (
@@ -182,6 +186,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-5 h-5 rounded-full bg-[#eef0fd] text-[#4f52e8] text-[10px] font-bold flex items-center justify-center flex-shrink-0">3</span>
                   <p className="text-[13px] font-semibold text-[#1f2937]">개선이 필요한 점이 있다면 알려주세요</p>
+                  <span className="text-[10.5px] text-[#9ca3af] font-medium ml-auto flex-shrink-0">선택</span>
                 </div>
                 <textarea value={feedback} onChange={e => setFeedback(e.target.value)} rows={3}
                   placeholder="서비스 개선을 위한 의견을 자유롭게 남겨주세요. (선택)"
@@ -190,10 +195,10 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
               </div>
 
               <div className="flex gap-2.5 pb-1">
-                <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#e4e7ef] text-[13px] font-medium text-[#6b7280] hover:bg-[#f9fafb] transition-colors">
+                <button onClick={() => handleSurveySubmit(true)} className="flex-1 py-2.5 rounded-xl border border-[#e4e7ef] text-[13px] font-medium text-[#6b7280] hover:bg-[#f9fafb] transition-colors">
                   건너뛰기
                 </button>
-                <button onClick={handleSurveySubmit} disabled={surveySubmitting}
+                <button onClick={() => handleSurveySubmit(false)} disabled={surveySubmitting}
                   className="flex-[2] py-2.5 rounded-xl bg-[#4f52e8] text-white text-[13px] font-semibold hover:bg-[#3e41d4] disabled:opacity-60 transition-all flex items-center justify-center gap-2">
                   {surveySubmitting ? (
                     <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>저장 중...</>
