@@ -706,7 +706,7 @@ export default function InterviewPage() {
   // ── 커스텀 훅 ──
   const {
     questions, questionsRef, setQuestions, questionCategories,
-    questionsLoading, questionsProgress, questionsStep,
+    questionsLoading, questionsProgress, questionsStep, questionError,
     interviewStyle, avatarSrc, resolvedStyleRef,
   } = useInterviewQuestions();
 
@@ -734,6 +734,14 @@ export default function InterviewPage() {
   useEffect(() => { qIdxRef.current = qIdx; }, [qIdx]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // 질문 수 부족 시 설정 화면으로 리다이렉트
+  useEffect(() => {
+    if (!questionsLoading && questionError) {
+      sessionStorage.setItem("questionGenerationError", "true");
+      router.replace("/setup");
+    }
+  }, [questionsLoading, questionError, router]);
 
 
   useEffect(() => {
