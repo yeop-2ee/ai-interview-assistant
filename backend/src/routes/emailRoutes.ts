@@ -64,11 +64,6 @@ function buildQuestionsHtml(
 <body style="margin:0; padding:0; background:#f8f9fc; font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;">
   <div style="max-width:620px; margin:32px auto; padding:0 16px 40px;">
 
-    <!-- 헤더 로고 영역 -->
-    <div style="background:#0d1035; border-radius:16px 16px 0 0; padding:28px 32px; text-align:center; margin-bottom:-1px;">
-      <span style="font-size:15px; font-weight:800; color:#ffffff; letter-spacing:-0.3px;">AI기반 맞춤 면접 도우미</span>
-    </div>
-
     <!-- 메인 카드 -->
     <div style="background:#ffffff; border-radius:16px; border:1px solid #e4e7ef; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.05);">
 
