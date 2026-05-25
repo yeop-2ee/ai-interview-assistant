@@ -667,6 +667,7 @@ export default function InterviewPage() {
   const [aiDisplayText, setAiDisplayText] = useState("");
   const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const typewriterDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typewriterTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [camError, setCamError] = useState(false);
   const [layout, setLayout] = useState<"split" | "pip" | "full">("pip");
@@ -947,31 +948,45 @@ export default function InterviewPage() {
 
   // 사전 렌더링 영상 재생 완료 시 호출
   const startTypewriter = useCallback((text: string, durationMs: number) => {
-    // 이전 타이머 정리
+    // 이전 타이머 전체 정리
+    typewriterTimeoutsRef.current.forEach(clearTimeout);
+    typewriterTimeoutsRef.current = [];
     if (typewriterDelayRef.current) clearTimeout(typewriterDelayRef.current);
-    if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+    if (typewriterTimerRef.current) { clearInterval(typewriterTimerRef.current); typewriterTimerRef.current = null; }
     setAiDisplayText("");
 
-    // TTS/영상 초기 무음 구간 보정
-    const startDelay = 80;
-    // 말보다 살짝 앞서 완료되도록 0.78배속
-    const speakDuration = Math.max(300, (durationMs - startDelay) * 0.78);
-    const msPerChar = speakDuration / text.length;
+    // 구두점별 가중치 — 해당 문자 뒤에 쉬는 시간을 더 줌
+    const getWeight = (char: string): number => {
+      if (char === '.' || char === '?' || char === '!' || char === '…') return 4.0;
+      if (char === ',') return 2.2;
+      if (char === ' ') return 0.6; // 공백은 빠르게
+      return 1.0;
+    };
 
-    typewriterDelayRef.current = setTimeout(() => {
-      let i = 0;
-      typewriterTimerRef.current = setInterval(() => {
-        i++;
-        setAiDisplayText(text.slice(0, i));
-        if (i >= text.length) {
-          clearInterval(typewriterTimerRef.current!);
-          typewriterTimerRef.current = null;
-        }
-      }, msPerChar);
-    }, startDelay);
+    // 전체 가중치 합산
+    let totalWeight = 0;
+    for (const ch of text) totalWeight += getWeight(ch);
+
+    // TTS 시작 무음 보정(80ms) + 전체 구간을 0.82배로 압축해 말보다 살짝 앞서 완성
+    const startDelay = 80;
+    const speakDuration = Math.max(400, (durationMs - startDelay) * 0.82);
+    const baseUnit = speakDuration / totalWeight;
+
+    // 글자마다 개별 setTimeout 스케줄
+    let elapsed = startDelay;
+    for (let i = 0; i < text.length; i++) {
+      const idx = i + 1;
+      const t = setTimeout(() => {
+        setAiDisplayText(text.slice(0, idx));
+      }, elapsed);
+      typewriterTimeoutsRef.current.push(t);
+      elapsed += getWeight(text[i]) * baseUnit;
+    }
   }, []);
 
   const stopTypewriter = useCallback(() => {
+    typewriterTimeoutsRef.current.forEach(clearTimeout);
+    typewriterTimeoutsRef.current = [];
     if (typewriterDelayRef.current) clearTimeout(typewriterDelayRef.current);
     if (typewriterTimerRef.current) {
       clearInterval(typewriterTimerRef.current);
