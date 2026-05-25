@@ -50,7 +50,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
       return;
     }
 
-    localStorage.setItem("userEmail", email);
+    // 프로필 이메일은 변경하지 않음 — localStorage 업데이트 없음
     setStatus("sending");
     try {
       const res = await fetch(`${BACKEND_URL}/email/send-results`, {
@@ -220,10 +220,10 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="이메일 주소를 입력해주세요"
                     className="w-full px-4 py-2.5 rounded-xl border border-[#e4e7ef] text-[13px] text-[#374151] placeholder-[#c4c9d6] focus:outline-none focus:border-[#4f52e8] focus:ring-1 focus:ring-[#4f52e8] transition-all"
-                    autoFocus
                   />
+                  <p className="text-[11px] text-[#9ca3af] mt-1.5">다른 이메일로 받고 싶다면 수정해주세요. 계정 이메일은 변경되지 않습니다.</p>
                   {status === "error" && (
-                    <p className="text-[11px] text-red-500 mt-1.5">전송에 실패했습니다. 다시 시도해주세요.</p>
+                    <p className="text-[11px] text-red-500 mt-1">전송에 실패했습니다. 다시 시도해주세요.</p>
                   )}
                 </div>
               )}
