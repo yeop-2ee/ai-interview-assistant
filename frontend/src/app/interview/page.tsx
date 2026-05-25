@@ -666,6 +666,7 @@ export default function InterviewPage() {
   const [aiSpeakingText, setAiSpeakingText] = useState("");
   const [aiDisplayText, setAiDisplayText] = useState("");
   const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const typewriterDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [camError, setCamError] = useState(false);
   const [layout, setLayout] = useState<"split" | "pip" | "full">("pip");
@@ -946,21 +947,32 @@ export default function InterviewPage() {
 
   // 사전 렌더링 영상 재생 완료 시 호출
   const startTypewriter = useCallback((text: string, durationMs: number) => {
+    // 이전 타이머 정리
+    if (typewriterDelayRef.current) clearTimeout(typewriterDelayRef.current);
     if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
     setAiDisplayText("");
-    const msPerChar = Math.max(25, Math.min(120, (durationMs * 0.55) / text.length));
-    let i = 0;
-    typewriterTimerRef.current = setInterval(() => {
-      i++;
-      setAiDisplayText(text.slice(0, i));
-      if (i >= text.length) {
-        clearInterval(typewriterTimerRef.current!);
-        typewriterTimerRef.current = null;
-      }
-    }, msPerChar);
+
+    // TTS/영상 초기 무음 구간 보정 (약 120ms)
+    const startDelay = 120;
+    // 실제 발화 구간 = 전체 재생시간 - 시작 무음 - 끝 무음(80ms)
+    const speakDuration = Math.max(300, durationMs - startDelay - 80);
+    const msPerChar = speakDuration / text.length;
+
+    typewriterDelayRef.current = setTimeout(() => {
+      let i = 0;
+      typewriterTimerRef.current = setInterval(() => {
+        i++;
+        setAiDisplayText(text.slice(0, i));
+        if (i >= text.length) {
+          clearInterval(typewriterTimerRef.current!);
+          typewriterTimerRef.current = null;
+        }
+      }, msPerChar);
+    }, startDelay);
   }, []);
 
   const stopTypewriter = useCallback(() => {
+    if (typewriterDelayRef.current) clearTimeout(typewriterDelayRef.current);
     if (typewriterTimerRef.current) {
       clearInterval(typewriterTimerRef.current);
       typewriterTimerRef.current = null;
