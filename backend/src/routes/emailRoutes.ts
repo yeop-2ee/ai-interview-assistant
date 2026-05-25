@@ -62,7 +62,7 @@ function buildQuestionsHtml(
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
 </head>
 <body style="margin:0; padding:0; background:#f8f9fc; font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;">
-  <div style="max-width:620px; margin:32px auto; padding:0 16px 40px;">
+  <div style="max-width:620px; margin:32px auto; padding:32px 16px 40px;">
 
     <!-- 메인 카드 -->
     <div style="background:#ffffff; border-radius:16px; border:1px solid #e4e7ef; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.05);">
