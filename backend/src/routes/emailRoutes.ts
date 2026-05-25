@@ -92,7 +92,7 @@ router.post("/send-results", async (req: Request, res: Response) => {
   if (surveys && surveys.length > 0) {
     try {
       const purpose     = surveys.find(s => s.label === "면접 목적")?.value ?? null
-      const naturalnessRaw = surveys.find(s => s.label === "AI 면접관 자연스러움")?.value
+      const naturalnessRaw = surveys.find(s => s.label === "면접 질문 만족도")?.value
       const naturalness = naturalnessRaw ? parseInt(naturalnessRaw) : null
       const feedback    = surveys.find(s => s.label === "개선 의견")?.value ?? null
 

@@ -11,12 +11,12 @@ interface Props {
 }
 
 const PURPOSE_OPTIONS = ["취업 준비", "이직 준비", "면접 연습", "스터디·과제"];
-const NATURALNESS_LEVELS = [
-  { score: 1, label: "매우\n부자연스러움" },
-  { score: 2, label: "부자연\n스러움" },
+const QUESTION_QUALITY_LEVELS = [
+  { score: 1, label: "전혀\n도움 안됨" },
+  { score: 2, label: "별로\n도움 안됨" },
   { score: 3, label: "보통" },
-  { score: 4, label: "자연\n스러움" },
-  { score: 5, label: "매우\n자연스러움" },
+  { score: 4, label: "도움\n됐어요" },
+  { score: 5, label: "매우\n도움됐어요" },
 ];
 
 export default function SurveyEmailModal({ questions = [], answers = [], onClose }: Props) {
@@ -40,7 +40,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
 
     const surveys = [
       purpose ? { label: "면접 목적", value: purpose } : null,
-      naturalness !== null ? { label: "AI 면접관 자연스러움", value: `${naturalness}점` } : null,
+      naturalness !== null ? { label: "면접 질문 만족도", value: `${naturalness}점` } : null,
       feedback.trim() ? { label: "개선 의견", value: feedback.trim() } : null,
     ].filter(Boolean) as { label: string; value: string }[];
 
@@ -128,14 +128,14 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
               </div>
             </div>
 
-            {/* Q2 AI 자연스러움 */}
+            {/* Q2 면접 질문 만족도 */}
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-5 h-5 rounded-full bg-[#eef0fd] text-[#4f52e8] text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
-                <p className="text-[13px] font-semibold text-[#1f2937]">AI 면접관은 얼마나 자연스러웠나요?</p>
+                <p className="text-[13px] font-semibold text-[#1f2937]">생성된 면접 질문이 나에게 도움이 되었나요?</p>
               </div>
               <div className="flex gap-2">
-                {NATURALNESS_LEVELS.map(({ score, label }) => (
+                {QUESTION_QUALITY_LEVELS.map(({ score, label }) => (
                   <button
                     key={score}
                     onClick={() => setNaturalness((prev) => (prev === score ? null : score))}
@@ -155,8 +155,8 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
                 ))}
               </div>
               <div className="flex justify-between mt-1.5 px-1">
-                <span className="text-[10px] text-[#9ca3af]">부자연스러움</span>
-                <span className="text-[10px] text-[#9ca3af]">매우 자연스러움</span>
+                <span className="text-[10px] text-[#9ca3af]">전혀 도움 안됨</span>
+                <span className="text-[10px] text-[#9ca3af]">매우 도움됨</span>
               </div>
             </div>
 

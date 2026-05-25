@@ -70,13 +70,13 @@ function HBar({ label, count, total, color = "#4f52e8" }: { label: string; count
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[12px] text-[#374151] w-28 flex-shrink-0 text-right">{label}</span>
-      <div className="flex-1 h-5 bg-[#f3f4f6] rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+      <span className="text-[12.5px] text-[#374151] w-32 flex-shrink-0 text-right font-medium">{label}</span>
+      <div className="flex-1 h-6 bg-[#f3f4f6] rounded-lg overflow-hidden relative">
+        <div className="h-full rounded-lg transition-all duration-500 flex items-center" style={{ width: `${pct}%`, backgroundColor: color }}>
+          {pct >= 12 && <span className="text-[11px] font-semibold text-white pl-2.5">{pct}%</span>}
+        </div>
       </div>
-      <span className="text-[12px] font-semibold text-[#374151] w-16 flex-shrink-0">
-        {count}건 <span className="text-[#9ca3af] font-normal">({pct}%)</span>
-      </span>
+      <span className="text-[13px] font-bold text-[#0d1035] w-12 flex-shrink-0 text-right">{count}<span className="text-[11px] font-normal text-[#9ca3af]">건</span></span>
     </div>
   );
 }
@@ -500,7 +500,7 @@ export default function AdminPage() {
                   <div className="grid grid-cols-3 gap-4">
                     <StatCard label="총 설문 응답" value={surveyStats.total} sub="누적 응답 수" />
                     <StatCard
-                      label="AI 자연스러움 평균"
+                      label="질문 만족도 평균"
                       value={surveyStats.naturalnessAvg !== null ? `${surveyStats.naturalnessAvg}점` : "-"}
                       sub="5점 만점"
                     />
@@ -511,73 +511,100 @@ export default function AdminPage() {
                     />
                   </div>
 
-                  {/* 면접 목적 분포 */}
-                  <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6">
-                    <h2 className="text-[14px] font-semibold text-[#0d1035] mb-4">면접 목적 분포</h2>
-                    {purposeKeys.length === 0 ? (
-                      <p className="text-[13px] text-[#c4c9d6] text-center py-4">응답 데이터 없음</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {purposeKeys.map((key, i) => (
-                          <HBar key={key} label={key} count={surveyStats.purposeMap[key]} total={surveyStats.total} color={purposeColors[i % purposeColors.length]} />
+                  {/* 차트 2단 그리드 */}
+                  <div className="grid grid-cols-2 gap-5">
+                    {/* 면접 목적 분포 */}
+                    <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6">
+                      <h2 className="text-[14px] font-semibold text-[#0d1035] mb-1">면접 목적</h2>
+                      <p className="text-[11.5px] text-[#9ca3af] mb-4">응답자 목적 분포</p>
+                      {purposeKeys.length === 0 ? (
+                        <p className="text-[13px] text-[#c4c9d6] text-center py-6">응답 데이터 없음</p>
+                      ) : (
+                        <div className="space-y-3.5">
+                          {purposeKeys.map((key, i) => (
+                            <HBar key={key} label={key} count={surveyStats.purposeMap[key]} total={surveyStats.total} color={purposeColors[i % purposeColors.length]} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 질문 만족도 분포 */}
+                    <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6">
+                      <h2 className="text-[14px] font-semibold text-[#0d1035] mb-1">면접 질문 만족도</h2>
+                      <p className="text-[11.5px] text-[#9ca3af] mb-4">1 = 전혀 도움 안됨 · 5 = 매우 도움됨</p>
+                      <div className="space-y-3.5">
+                        {[5, 4, 3, 2, 1].map((score) => (
+                          <HBar
+                            key={score}
+                            label={score === 5 ? "5점 — 매우 도움" : score === 4 ? "4점 — 도움됨" : score === 3 ? "3점 — 보통" : score === 2 ? "2점 — 별로" : "1점 — 전혀 안됨"}
+                            count={surveyStats.naturalnessMap[score] ?? 0}
+                            total={Object.values(surveyStats.naturalnessMap).reduce((a, b) => a + b, 0)}
+                            color={score >= 4 ? "#059669" : score === 3 ? "#d97706" : "#ef4444"}
+                          />
                         ))}
                       </div>
-                    )}
-                  </div>
-
-                  {/* AI 자연스러움 분포 */}
-                  <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6">
-                    <h2 className="text-[14px] font-semibold text-[#0d1035] mb-1">AI 면접관 자연스러움</h2>
-                    <p className="text-[12px] text-[#9ca3af] mb-4">1 = 매우 부자연스러움 · 5 = 매우 자연스러움</p>
-                    <div className="space-y-3">
-                      {[1, 2, 3, 4, 5].map((score) => (
-                        <HBar
-                          key={score}
-                          label={`${score}점`}
-                          count={surveyStats.naturalnessMap[score] ?? 0}
-                          total={Object.values(surveyStats.naturalnessMap).reduce((a, b) => a + b, 0)}
-                          color={score >= 4 ? "#059669" : score === 3 ? "#d97706" : "#ef4444"}
-                        />
-                      ))}
                     </div>
                   </div>
 
                   {/* 일별 응답 추이 */}
                   <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6">
-                    <h2 className="text-[14px] font-semibold text-[#0d1035] mb-4">일별 응답 추이 <span className="text-[12px] font-normal text-[#9ca3af]">(최근 30일)</span></h2>
-                    <div className="flex items-end gap-1 h-24">
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <h2 className="text-[14px] font-semibold text-[#0d1035]">일별 응답 추이</h2>
+                        <p className="text-[11.5px] text-[#9ca3af] mt-0.5">최근 30일 · 총 {surveyStats.total}건</p>
+                      </div>
+                      <span className="text-[13px] font-bold text-[#4f52e8]">최대 {dailyMax}건/일</span>
+                    </div>
+                    <div className="flex items-end gap-[3px] h-32">
                       {surveyStats.daily.map((d) => (
-                        <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group">
+                        <div key={d.date} className="flex-1 flex flex-col items-center group relative">
+                          {/* 툴팁 */}
+                          <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
+                            <div className="bg-[#0d1035] text-white text-[10px] font-semibold rounded-lg px-2 py-1 whitespace-nowrap shadow-lg">
+                              {d.date.slice(5)} · {d.count}건
+                            </div>
+                            <div className="w-1.5 h-1.5 bg-[#0d1035] rotate-45 -mt-[3px]" />
+                          </div>
                           <div
-                            className="w-full rounded-t-sm bg-[#4f52e8]/20 group-hover:bg-[#4f52e8]/50 transition-colors relative"
-                            style={{ height: `${Math.max((d.count / dailyMax) * 88, d.count > 0 ? 4 : 0)}px` }}
-                            title={`${d.date}: ${d.count}건`}
+                            className="w-full rounded-t-md transition-colors cursor-default"
+                            style={{
+                              height: `${Math.max((d.count / dailyMax) * 120, d.count > 0 ? 5 : 0)}px`,
+                              backgroundColor: d.count > 0 ? "#4f52e8" : "#f3f4f6",
+                              opacity: d.count > 0 ? 0.7 : 1,
+                            }}
                           />
                         </div>
                       ))}
                     </div>
-                    <div className="flex justify-between mt-2">
-                      <span className="text-[10px] text-[#c4c9d6]">{surveyStats.daily[0]?.date.slice(5)}</span>
-                      <span className="text-[10px] text-[#c4c9d6]">{surveyStats.daily[surveyStats.daily.length - 1]?.date.slice(5)}</span>
+                    <div className="flex justify-between mt-2 border-t border-[#f3f4f6] pt-2">
+                      <span className="text-[10.5px] text-[#9ca3af]">{surveyStats.daily[0]?.date.slice(5)}</span>
+                      <span className="text-[10.5px] text-[#9ca3af] text-center">막대 위에 마우스를 올리면 상세 확인</span>
+                      <span className="text-[10.5px] text-[#9ca3af]">{surveyStats.daily[surveyStats.daily.length - 1]?.date.slice(5)}</span>
                     </div>
                   </div>
 
                   {/* 개선 의견 목록 */}
                   <div className="bg-white rounded-2xl border border-[#e4e7ef] overflow-hidden">
                     <div className="px-6 py-4 border-b border-[#f0f2f8] flex items-center justify-between">
-                      <h2 className="text-[14px] font-semibold text-[#0d1035]">최근 개선 의견</h2>
-                      <span className="text-[12px] text-[#9ca3af]">{surveyStats.feedbacks.length}개</span>
+                      <div>
+                        <h2 className="text-[14px] font-semibold text-[#0d1035]">최근 개선 의견</h2>
+                        <p className="text-[11.5px] text-[#9ca3af] mt-0.5">텍스트로 남긴 피드백</p>
+                      </div>
+                      <span className="text-[12px] font-semibold text-[#4f52e8] bg-[#eef0fd] px-2.5 py-0.5 rounded-full">{surveyStats.feedbacks.length}개</span>
                     </div>
                     {surveyStats.feedbacks.length === 0 ? (
                       <div className="px-6 py-10 text-center text-[13px] text-[#c4c9d6]">아직 개선 의견이 없습니다.</div>
                     ) : (
-                      <div className="divide-y divide-[#f8f9fc] max-h-[420px] overflow-y-auto">
-                        {surveyStats.feedbacks.map((f) => (
-                          <div key={f.id} className="px-6 py-4">
-                            <p className="text-[13px] text-[#374151] leading-relaxed">{f.feedback}</p>
-                            <p className="text-[11px] text-[#c4c9d6] mt-1.5">
-                              {new Date(f.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                            </p>
+                      <div className="divide-y divide-[#f8f9fc] max-h-[400px] overflow-y-auto">
+                        {surveyStats.feedbacks.map((f, i) => (
+                          <div key={f.id} className="px-6 py-4 flex gap-4">
+                            <span className="text-[11px] font-bold text-[#9ca3af] w-5 flex-shrink-0 mt-0.5">#{i + 1}</span>
+                            <div className="flex-1">
+                              <p className="text-[13px] text-[#374151] leading-relaxed">{f.feedback}</p>
+                              <p className="text-[11px] text-[#c4c9d6] mt-1.5">
+                                {new Date(f.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                            </div>
                           </div>
                         ))}
                       </div>
