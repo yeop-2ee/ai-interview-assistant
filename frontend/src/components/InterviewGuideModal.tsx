@@ -60,7 +60,8 @@ const STEPS = [
 
 const HOW_TO = [
   "AI 면접관의 질문을 끝까지 들으세요",
-  "하단 마이크 버튼을 눌러 답변을 녹음하세요",
+  "질문이 끝나면 자동으로 녹음이 시작됩니다",
+  "최대 1분 30초 내에 답변하고 '답변 종료'를 누르세요",
   "인식된 텍스트를 확인·수정한 뒤 제출하세요",
 ];
 
@@ -88,7 +89,7 @@ const TIPS = [
         <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
       </svg>
     ),
-    text: "질문당 약 4~5분 사용 가능해요",
+    text: "답변 시간은 최대 1분 30초예요",
   },
   {
     icon: (
@@ -117,7 +118,7 @@ export default function InterviewGuideModal({ onClose }: Props) {
                 </svg>
                 면접 안내
               </span>
-              <h2 className="text-[20px] font-bold text-[#0d1035] leading-snug">면접, 이렇게 진행돼요 🎙️</h2>
+              <h2 className="text-[20px] font-bold text-[#0d1035] leading-snug">면접, 이렇게 진행돼요</h2>
               <p className="text-[12.5px] text-[#6b7280] mt-1.5">질문을 생성하는 동안 잠깐 확인해주세요</p>
             </div>
             <button onClick={onClose} className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-[#9ca3af] hover:text-[#374151] hover:bg-[#f3f4f6] transition-all mt-0.5">
@@ -159,13 +160,13 @@ export default function InterviewGuideModal({ onClose }: Props) {
             {/* 답변 방법 */}
             <div>
               <p className="text-[10.5px] font-bold text-[#9ca3af] tracking-widest uppercase mb-3.5">답변 방법</p>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2.5">
                 {HOW_TO.map((text, i) => (
                   <div key={i} className="flex items-start gap-2.5">
                     <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#4f52e8] text-white text-[10px] font-bold flex items-center justify-center mt-0.5">
                       {i + 1}
                     </span>
-                    <span className="text-[12px] text-[#374151] leading-relaxed">{text}</span>
+                    <span className="text-[11.5px] text-[#374151] leading-relaxed">{text}</span>
                   </div>
                 ))}
               </div>

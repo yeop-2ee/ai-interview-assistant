@@ -62,7 +62,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[3px]" onClick={onClose} />
 
-      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-slide-up max-h-[90vh] flex flex-col">
 
         {/* 헤더 */}
         <div className="px-7 pt-6 pb-5 border-b border-[#e4e7ef]">
@@ -74,7 +74,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
                 </svg>
                 면접 후 설문
               </span>
-              <h2 className="text-[20px] font-bold text-[#0d1035] leading-snug">면접 수고하셨습니다! 👏</h2>
+              <h2 className="text-[20px] font-bold text-[#0d1035] leading-snug">면접 수고하셨습니다!</h2>
               <p className="text-[12.5px] text-[#6b7280] mt-1.5">리포트 작성 중에 잠깐 응답해주세요. 서비스 개선에 큰 도움이 됩니다.</p>
             </div>
             <button onClick={onClose} className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-[#9ca3af] hover:text-[#374151] hover:bg-[#f3f4f6] transition-all mt-0.5">
@@ -86,6 +86,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
         </div>
 
         {/* 완료 상태 */}
+        <div className="overflow-y-auto flex-1">
         {status === "done" ? (
           <div className="px-7 py-10 flex flex-col items-center gap-3 text-center">
             <div className="w-14 h-14 rounded-full bg-green-50 border border-green-100 flex items-center justify-center">
@@ -230,6 +231,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
 
           </div>
         )}
+        </div>
       </div>
 
       <style>{`
