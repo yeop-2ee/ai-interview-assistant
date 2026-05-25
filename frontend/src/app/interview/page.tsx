@@ -955,32 +955,45 @@ export default function InterviewPage() {
     if (typewriterTimerRef.current) { clearInterval(typewriterTimerRef.current); typewriterTimerRef.current = null; }
     setAiDisplayText("");
 
-    // 구두점별 가중치 — 해당 문자 뒤에 쉬는 시간을 더 줌
-    const getWeight = (char: string): number => {
-      if (char === '.' || char === '?' || char === '!' || char === '…') return 4.0;
-      if (char === ',') return 2.2;
-      if (char === ' ') return 0.6; // 공백은 빠르게
+    // 문자별 발화 가중치
+    const getWeight = (char: string, prev: string): number => {
+      // 문장 종결 부호 — 가장 긴 쉼
+      if ('.?!？！'.includes(char)) return 5.5;
+      if (char === '…') return 7.0;
+      // 쉼표·콜론·세미콜론 — 중간 쉼
+      if (',:;،'.includes(char)) return 2.8;
+      // 대시·괄호 닫힘 — 짧은 쉼
+      if ('—–)】』"\''.includes(char)) return 2.0;
+      // 공백: 앞 글자가 구두점이면 이미 쉬었으므로 매우 짧게
+      if (char === ' ') return '.?!,;:…—–'.includes(prev) ? 0.2 : 0.5;
+      // 한글 음절 (AC00–D7A3)
+      const code = char.charCodeAt(0);
+      if (code >= 0xAC00 && code <= 0xD7A3) return 1.0;
+      // 숫자·영문은 한 글자당 발화량이 적음
+      if (/[0-9A-Za-z]/.test(char)) return 0.7;
       return 1.0;
     };
 
     // 전체 가중치 합산
     let totalWeight = 0;
-    for (const ch of text) totalWeight += getWeight(ch);
+    for (let i = 0; i < text.length; i++) totalWeight += getWeight(text[i], text[i - 1] ?? '');
 
-    // TTS 시작 무음 보정(80ms) + 전체 구간을 0.82배로 압축해 말보다 살짝 앞서 완성
-    const startDelay = 80;
-    const speakDuration = Math.max(400, (durationMs - startDelay) * 0.82);
+    // TTS 시작 무음(50ms) + 실제 발화 구간의 0.88배 (말보다 약간 앞서 완성)
+    const startDelay = 50;
+    const speakDuration = Math.max(400, (durationMs - startDelay) * 0.88);
     const baseUnit = speakDuration / totalWeight;
 
-    // 글자마다 개별 setTimeout 스케줄
+    // 글자마다 개별 setTimeout — 미세 지터(±8%) 추가로 기계적 느낌 제거
     let elapsed = startDelay;
     for (let i = 0; i < text.length; i++) {
       const idx = i + 1;
+      const w = getWeight(text[i], text[i - 1] ?? '');
+      const jitter = baseUnit * w < 60 ? 0 : (Math.random() - 0.5) * baseUnit * 0.08;
       const t = setTimeout(() => {
         setAiDisplayText(text.slice(0, idx));
       }, elapsed);
       typewriterTimeoutsRef.current.push(t);
-      elapsed += getWeight(text[i]) * baseUnit;
+      elapsed += w * baseUnit + jitter;
     }
   }, []);
 
