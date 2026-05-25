@@ -952,10 +952,10 @@ export default function InterviewPage() {
     if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
     setAiDisplayText("");
 
-    // TTS/영상 초기 무음 구간 보정 (약 120ms)
-    const startDelay = 120;
-    // 실제 발화 구간 = 전체 재생시간 - 시작 무음 - 끝 무음(80ms)
-    const speakDuration = Math.max(300, durationMs - startDelay - 80);
+    // TTS/영상 초기 무음 구간 보정
+    const startDelay = 80;
+    // 말보다 살짝 앞서 완료되도록 0.78배속
+    const speakDuration = Math.max(300, (durationMs - startDelay) * 0.78);
     const msPerChar = speakDuration / text.length;
 
     typewriterDelayRef.current = setTimeout(() => {
