@@ -8,7 +8,8 @@ import { useFaceAnalysis } from "@/hooks/useFaceAnalysis";
 import { INTERVIEW_INTRO_QUESTION, useInterviewQuestions } from "@/hooks/useInterviewQuestions";
 import { useCallMedia } from "@/hooks/useCallMedia";
 import { parseSSE } from "@/lib/sseStream"
-import SurveyEmailModal from "@/components/SurveyEmailModal";
+import SurveyEmailModal from "@/components/SurveyEmailModal"
+import InterviewGuideModal from "@/components/InterviewGuideModal";
 
 const MEDIA_API = process.env.NEXT_PUBLIC_MEDIA_API!;
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
@@ -127,7 +128,7 @@ function ReadyScreen({
   const [micErr, setMicErr] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
-  const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [mediaServerOk, setMediaServerOk] = useState<boolean | null>(null);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -203,7 +204,7 @@ function ReadyScreen({
 
   useEffect(() => {
     if (!questionsLoading) return;
-    const t = setTimeout(() => setShowSurveyModal(true), 4000);
+    const t = setTimeout(() => setShowGuideModal(true), 4000);
     return () => clearTimeout(t);
   }, [questionsLoading]);
 
@@ -631,8 +632,8 @@ function ReadyScreen({
           </div>
         </div>
       </div>
-      {showSurveyModal && (
-        <SurveyEmailModal context="questions" onClose={() => setShowSurveyModal(false)} />
+      {showGuideModal && (
+        <InterviewGuideModal onClose={() => setShowGuideModal(false)} />
       )}
     </div>
   );
@@ -647,6 +648,7 @@ export default function InterviewPage() {
   const [qIdx, setQIdx] = useState(0);
   const [recording, setRecording] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [aiSpeakingText, setAiSpeakingText] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [camError, setCamError] = useState(false);
   const [layout, setLayout] = useState<"split" | "pip" | "full">("pip");
@@ -920,11 +922,14 @@ export default function InterviewPage() {
   // 사전 렌더링 영상 재생 완료 시 호출
   const handleAvatarVideoEnded = useCallback(() => {
     setAiSpeaking(false);
+    setAiSpeakingText("");
     setLipVideoSrc(null);
     if (phaseRef.current === "call" && !document.hidden) startListening();
   }, [startListening]);
 
   const speakText = useCallback(async (text: string) => {
+    setAiSpeakingText(text);
+
     // 1. 백그라운드에서 생성된 추가질문 Wav2Lip 영상
     const dynamicVideo = additionalVideosRef.current[text];
     if (dynamicVideo) {
@@ -944,6 +949,7 @@ export default function InterviewPage() {
       const data = await res.json();
       if (!data.success) {
         setAiSpeaking(false);
+        setAiSpeakingText("");
         if (phaseRef.current === "call" && !document.hidden) startListening();
         return;
       }
@@ -955,13 +961,20 @@ export default function InterviewPage() {
       audio.onended = () => {
         audioRef.current = null;
         setAiSpeaking(false);
+        setAiSpeakingText("");
         setLipVideoSrc(null);
         if (phaseRef.current === "call" && !document.hidden) startListening();
       };
-      audio.onerror = () => { audioRef.current = null; setAiSpeaking(false); setLipVideoSrc(null); };
+      audio.onerror = () => {
+        audioRef.current = null;
+        setAiSpeaking(false);
+        setAiSpeakingText("");
+        setLipVideoSrc(null);
+      };
       await audio.play();
     } catch {
       setAiSpeaking(false);
+      setAiSpeakingText("");
       if (phaseRef.current === "call" && !document.hidden) startListening();
     }
   }, [startListening]);
@@ -1198,6 +1211,18 @@ export default function InterviewPage() {
                 <span className="text-[12px] text-[#374151] font-medium">AI 면접관</span>
               </div>
             </div>
+
+            {/* 자막 */}
+            {aiSpeaking && aiSpeakingText && (
+              <div
+                className="absolute bottom-0 left-0 right-0 pt-12 pb-4 bg-gradient-to-t from-black/75 via-black/40 to-transparent pointer-events-none transition-all"
+                style={{ paddingLeft: "20px", paddingRight: layout === "pip" ? "200px" : "20px" }}
+              >
+                <p className="text-white text-[14px] font-semibold leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+                  {aiSpeakingText}
+                </p>
+              </div>
+            )}
 
 
             {/* PiP: 내 화면 오른쪽 하단 */}
