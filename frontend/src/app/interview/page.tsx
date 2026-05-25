@@ -948,7 +948,7 @@ export default function InterviewPage() {
   const startTypewriter = useCallback((text: string, durationMs: number) => {
     if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
     setAiDisplayText("");
-    const msPerChar = Math.max(20, Math.min(100, (durationMs * 0.6) / text.length));
+    const msPerChar = Math.max(15, Math.min(60, (durationMs * 0.35) / text.length));
     let i = 0;
     typewriterTimerRef.current = setInterval(() => {
       i++;
