@@ -23,27 +23,34 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
   const [purpose, setPurpose] = useState<string | null>(null);
   const [naturalness, setNaturalness] = useState<number | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [emailConsent, setEmailConsent] = useState(false);
   const [email, setEmail] = useState(
     typeof window !== "undefined" ? localStorage.getItem("userEmail") ?? "" : ""
   );
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
 
   const handleSubmit = async () => {
-    if (email && email.includes("@")) {
-      localStorage.setItem("userEmail", email);
-    }
-
-    if (!email || !email.includes("@")) {
-      onClose();
-      return;
-    }
-
     const surveys = [
       purpose ? { label: "면접 목적", value: purpose } : null,
       naturalness !== null ? { label: "면접 질문 만족도", value: `${naturalness}점` } : null,
       feedback.trim() ? { label: "개선 의견", value: feedback.trim() } : null,
     ].filter(Boolean) as { label: string; value: string }[];
 
+    // 이메일 동의 안 했으면 설문만 저장하고 닫기
+    if (!emailConsent || !email || !email.includes("@")) {
+      setStatus("sending");
+      try {
+        await fetch(`${BACKEND_URL}/email/send-results`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: null, questions: [], answers: [], surveys }),
+        });
+      } catch { /* ignore */ }
+      onClose();
+      return;
+    }
+
+    localStorage.setItem("userEmail", email);
     setStatus("sending");
     try {
       const res = await fetch(`${BACKEND_URL}/email/send-results`, {
@@ -178,29 +185,47 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
             {/* 구분선 */}
             <div className="border-t border-[#f3f4f6]" />
 
-            {/* 이메일 */}
+            {/* 이메일 동의 체크박스 */}
             <div>
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-[#eef0fd] flex items-center justify-center flex-shrink-0">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4f52e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative flex-shrink-0 mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={emailConsent}
+                    onChange={(e) => setEmailConsent(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                    emailConsent ? "bg-[#4f52e8] border-[#4f52e8]" : "bg-white border-[#d1d5db] group-hover:border-[#4f52e8]"
+                  }`}>
+                    {emailConsent && (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold text-[#1f2937]">면접 결과를 이메일로 받아보세요</p>
-                  <p className="text-[11.5px] text-[#9ca3af] mt-0.5">오늘 주고받은 모든 질문과 답변을 메일로 보내드려요.</p>
+                  <p className="text-[13px] font-semibold text-[#1f2937]">면접 결과를 이메일로 받겠습니다</p>
+                  <p className="text-[11.5px] text-[#9ca3af] mt-0.5">오늘 주고받은 질문과 답변을 메일로 보내드려요.</p>
                 </div>
-              </div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="이메일 주소 입력 (선택)"
-                className="w-full px-4 py-2.5 rounded-xl border border-[#e4e7ef] text-[13px] text-[#374151] placeholder-[#c4c9d6] focus:outline-none focus:border-[#4f52e8] focus:ring-1 focus:ring-[#4f52e8] transition-all"
-              />
-              {status === "error" && (
-                <p className="text-[11px] text-red-500 mt-1.5">전송에 실패했습니다. 다시 시도해주세요.</p>
+              </label>
+
+              {/* 이메일 입력 — 동의 시에만 표시 */}
+              {emailConsent && (
+                <div className="mt-3">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="이메일 주소를 입력해주세요"
+                    className="w-full px-4 py-2.5 rounded-xl border border-[#e4e7ef] text-[13px] text-[#374151] placeholder-[#c4c9d6] focus:outline-none focus:border-[#4f52e8] focus:ring-1 focus:ring-[#4f52e8] transition-all"
+                    autoFocus
+                  />
+                  {status === "error" && (
+                    <p className="text-[11px] text-red-500 mt-1.5">전송에 실패했습니다. 다시 시도해주세요.</p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -214,7 +239,7 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={status === "sending"}
+                disabled={status === "sending" || (emailConsent && (!email || !email.includes("@")))}
                 className="flex-[2] py-2.5 rounded-xl bg-[#4f52e8] text-white text-[13px] font-semibold hover:bg-[#3e41d4] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
               >
                 {status === "sending" ? (

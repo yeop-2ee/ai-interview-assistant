@@ -78,36 +78,37 @@ function buildQuestionsHtml(
 // POST /email/send-results
 router.post("/send-results", async (req: Request, res: Response) => {
   const { email, questions, answers, surveys } = req.body as {
-    email: string
+    email: string | null
     questions: string[]
     answers: string[]
     surveys?: { label: string; value: string }[]
   }
 
-  if (!email || typeof email !== "string" || !email.includes("@")) {
-    return res.status(400).json({ ok: false, message: "유효하지 않은 이메일입니다." })
-  }
-
-  // 설문 응답 DB 저장
+  // 설문 응답 DB 저장 (이메일 동의 여부와 무관하게 항상 저장)
   if (surveys && surveys.length > 0) {
     try {
-      const purpose     = surveys.find(s => s.label === "면접 목적")?.value ?? null
+      const purpose        = surveys.find(s => s.label === "면접 목적")?.value ?? null
       const naturalnessRaw = surveys.find(s => s.label === "면접 질문 만족도")?.value
-      const naturalness = naturalnessRaw ? parseInt(naturalnessRaw) : null
-      const feedback    = surveys.find(s => s.label === "개선 의견")?.value ?? null
+      const naturalness    = naturalnessRaw ? parseInt(naturalnessRaw) : null
+      const feedback       = surveys.find(s => s.label === "개선 의견")?.value ?? null
 
       await prisma.surveyResponse.create({
         data: {
           purpose,
           naturalness: isNaN(naturalness as number) ? null : naturalness,
           feedback,
-          email,
+          email: email ?? null,
         },
       })
       console.log("[survey] DB 저장 완료")
     } catch (e) {
       console.error("[survey] DB 저장 실패:", e instanceof Error ? e.message : e)
     }
+  }
+
+  // 이메일 동의 없음 — 설문만 저장하고 종료
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    return res.json({ ok: true, skipped: true })
   }
 
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
