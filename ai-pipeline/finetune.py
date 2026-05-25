@@ -16,7 +16,8 @@ import json, torch
 from datasets import Dataset
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
-from trl import SFTTrainer, TrainingArguments
+from trl import SFTTrainer
+from transformers import TrainingArguments
 
 # ── 설정 ──────────────────────────────────────────────────────────────────
 MODEL_NAME     = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
@@ -85,8 +86,8 @@ trainer = SFTTrainer(
     max_seq_length=MAX_SEQ_LENGTH,
     dataset_num_proc=2,
     args=TrainingArguments(
-        per_device_train_batch_size=2,
-        gradient_accumulation_steps=4,   # 유효 배치 크기 = 8
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=8,   # 유효 배치 크기 = 8
         num_train_epochs=3,
         warmup_steps=20,
         learning_rate=2e-4,

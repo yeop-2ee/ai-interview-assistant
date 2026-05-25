@@ -59,7 +59,6 @@ const EXPERIENCE_MAP = {
   senior:   '시니어 (5년 이상) — 리더십·아키텍처 설계·기술 의사결정·멘토링 역량 위주 질문',
 };
 
-// ── 직무별 랜덤 키워드 (다양성 확보)
 const TOPIC_KEYWORDS = {
   '':              ['자료구조', '알고리즘', '운영체제', '네트워크', '데이터베이스', '객체지향', '디자인패턴', '버전관리', '테스트'],
   '프론트엔드 개발자': ['React', 'Vue', '상태관리', '렌더링 최적화', 'CSS', '웹 접근성', 'TypeScript', '번들러', 'SEO', '크로스브라우저'],
@@ -72,21 +71,14 @@ function getRandomKeyword(jobRole) {
   return keywords[Math.floor(Math.random() * keywords.length)];
 }
 
-// ── 학과 + 직무 (IT 계열 — 직무 없으면 빈 문자열)
 const DEPARTMENTS = ['컴퓨터소프트웨어과'];
-const JOB_ROLES   = [
-  '',                   // 직무 미지정
-  '프론트엔드 개발자',
-  '백엔드 개발자',
-  'AI 엔지니어',
-];
-
+const JOB_ROLES   = ['', '프론트엔드 개발자', '백엔드 개발자', 'AI 엔지니어'];
 const COMPANY_TYPES = ['startup', 'smb', 'midsize', 'large', 'public', 'foreign'];
 const LEVELS        = ['newcomer', 'junior', 'mid', 'senior'];
 const STYLES        = ['friendly', 'pressure', 'professor', 'practical'];
 const TYPES         = ['major', 'personality'];
 
-// ── aiServer.js와 동일한 프롬프트 빌더 ───────────────────────────────────
+// ── 질문 생성 프롬프트 빌더 (기존) ───────────────────────────────────────
 function buildBaseContext(department, jobRole, companyType, experienceLevel, style) {
   return {
     persona:        STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly,
@@ -162,6 +154,64 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
   return p;
 }
 
+// ── 꼬리질문 학습 데이터 생성 (신규) ─────────────────────────────────────
+// Gemini에게 질문+답변+꼬리질문 triplet을 한 번에 생성 요청
+async function generateFollowupTriplet(jobRole, level, style) {
+  const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+  const levelLabel = EXPERIENCE_MAP[level] || level;
+  const keyword = getRandomKeyword(jobRole);
+  const context = jobRole || '컴퓨터소프트웨어과';
+
+  const prompt =
+    `한국어 IT 직무 면접 대화 데이터를 생성하세요.\n\n` +
+    `면접관: ${persona.role} (${persona.tone})\n` +
+    `직무: ${context}\n` +
+    `지원자 수준: ${levelLabel}\n` +
+    `주제 키워드: ${keyword}\n\n` +
+    `아래 JSON 형식으로만 응답하세요:\n` +
+    `{"question":"면접 질문 (한 문장, 물음표로 끝)","answer":"지원자의 현실적인 답변 (3~5문장, ${keyword} 관련 구체적 경험 포함)","followup":"답변 내용 기반 꼬리질문 (한 문장, 물음표로 끝)"}`;
+
+  const res = await generator.chat.completions.create({
+    model: GENERATOR_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.9,
+  });
+
+  const raw = res.choices[0].message.content;
+  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  const parsed = JSON.parse(stripped);
+
+  if (!parsed.question || !parsed.answer || !parsed.followup) throw new Error('불완전한 triplet');
+  if (!parsed.question.trim().endsWith('?')) throw new Error('question이 물음표로 끝나지 않음');
+  if (!parsed.followup.trim().endsWith('?')) throw new Error('followup이 물음표로 끝나지 않음');
+  if (parsed.answer.trim().length < 30) throw new Error('answer가 너무 짧음');
+
+  return { question: parsed.question.trim(), answer: parsed.answer.trim(), followup: parsed.followup.trim() };
+}
+
+// aiServer.js의 inference 프롬프트와 동일한 형식으로 학습 데이터 포맷
+function formatFollowupTrainLine(jobRole, style, triplet) {
+  const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+  const context = jobRole || '';
+
+  const userPrompt =
+    `면접관(${persona.role})이 지원자의 답변에 심화 꼬리질문을 합니다. 반드시 한국어로만 답변하세요.\n\n` +
+    (context ? `직무: ${context}\n` : '') +
+    `질문: ${triplet.question}\n` +
+    `답변: ${triplet.answer}\n\n` +
+    `답변에서 언급된 구체적인 내용을 바탕으로 꼬리질문 1개를 작성하세요. 짧고 날카롭게, 물음표로 끝내세요.\n` +
+    `{"followup":"꼬리질문"}`;
+
+  const assistantContent = JSON.stringify({ followup: triplet.followup });
+
+  return JSON.stringify({
+    messages: [
+      { role: 'user', content: userPrompt },
+      { role: 'assistant', content: assistantContent },
+    ],
+  });
+}
+
 // ── 유효성 검사 ───────────────────────────────────────────────────────────
 function validate(raw) {
   try {
@@ -178,7 +228,6 @@ function validate(raw) {
   }
 }
 
-// ── 단일 항목 생성 (재시도 포함) ─────────────────────────────────────────
 async function generateOne(prompt, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -190,8 +239,7 @@ async function generateOne(prompt, retries = 2) {
       const raw = res.choices[0].message.content;
       const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
       if (!validate(stripped)) throw new Error('유효성 검사 실패');
-      const content = JSON.stringify(JSON.parse(stripped));
-      return content;
+      return JSON.stringify(JSON.parse(stripped));
     } catch (e) {
       if (i === retries) throw e;
       await new Promise(r => setTimeout(r, 1500 * (i + 1)));
@@ -199,12 +247,21 @@ async function generateOne(prompt, retries = 2) {
   }
 }
 
+function appendLine(line) {
+  if (Math.random() < 0.1) {
+    fs.appendFileSync('data/eval.jsonl', line + '\n', 'utf8');
+    return 'eval';
+  } else {
+    fs.appendFileSync('data/train.jsonl', line + '\n', 'utf8');
+    return 'train';
+  }
+}
+
 // ── 메인 ─────────────────────────────────────────────────────────────────
 async function main() {
-  // data 폴더 생성
   if (!fs.existsSync('data')) fs.mkdirSync('data');
 
-  // 전체 조합 생성
+  // ── 1단계: 질문 생성 (기존 로직) ─────────────────────────────────────
   const combinations = [];
   for (const dept of DEPARTMENTS) {
     for (const jobRole of JOB_ROLES) {
@@ -220,13 +277,11 @@ async function main() {
     }
   }
 
-  // 셔플 (특정 학과가 앞에 몰리지 않도록)
   for (let i = combinations.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [combinations[i], combinations[j]] = [combinations[j], combinations[i]];
   }
 
-  // 완료된 조합 로드 (이어하기)
   const doneFile = 'data/done.txt';
   const done = new Set(
     fs.existsSync(doneFile)
@@ -238,12 +293,10 @@ async function main() {
       !done.has(`${dept}|${jobRole}|${company}|${level}|${style}|${type}`)
   );
 
-  console.log(`총 ${combinations.length}개 조합 중 ${done.size}개 완료, ${remaining.length}개 남음 (모델: ${GENERATOR_MODEL})\n`);
+  console.log(`\n[1단계] 면접 질문 생성`);
+  console.log(`총 ${combinations.length}개 조합 중 ${done.size}개 완료, ${remaining.length}개 남음\n`);
 
-  let success = 0;
-  let fail    = 0;
-  let trainCount = 0;
-  let evalCount  = 0;
+  let qSuccess = 0, qFail = 0;
 
   for (let i = 0; i < remaining.length; i++) {
     const { dept, jobRole, company, level, style, type } = remaining[i];
@@ -259,35 +312,91 @@ async function main() {
         ],
       });
 
-      // 10% 확률로 eval, 나머지는 train에 즉시 저장
-      if (Math.random() < 0.1) {
-        fs.appendFileSync('data/eval.jsonl',  line + '\n', 'utf8');
-        evalCount++;
-      } else {
-        fs.appendFileSync('data/train.jsonl', line + '\n', 'utf8');
-        trainCount++;
-      }
+      appendLine(line);
       fs.appendFileSync(doneFile, `${dept}|${jobRole}|${company}|${level}|${style}|${type}\n`, 'utf8');
-      success++;
+      qSuccess++;
     } catch (e) {
-      fail++;
-      console.error(`  ✗ [${dept}/${jobRole || '직무없음'}/${company}/${level}/${style}/${type}] ${e.message}`);
+      qFail++;
+      console.error(`  ✗ [${jobRole || '직무없음'}/${company}/${level}/${style}/${type}] ${e.message}`);
     }
 
-    // 진행률 출력
     if ((i + 1) % 20 === 0 || i + 1 === remaining.length) {
       const pct = (((i + 1) / remaining.length) * 100).toFixed(1);
-      console.log(`[${pct}%] ${i + 1}/${combinations.length} — 성공 ${success} / 실패 ${fail}`);
+      console.log(`[${pct}%] ${i + 1}/${remaining.length} — 성공 ${qSuccess} / 실패 ${qFail}`);
     }
 
-    // 레이트 리밋 방지
     await new Promise(r => setTimeout(r, DELAY_MS));
   }
 
+  // ── 2단계: 꼬리질문 학습 데이터 생성 (신규) ──────────────────────────
+  // 4 roles × 4 styles × 4 levels × 5 반복 = 320개 목표
+  const FOLLOWUP_REPEATS = 5;
+  const followupCombos = [];
+  for (const jobRole of JOB_ROLES) {
+    for (const style of STYLES) {
+      for (const level of LEVELS) {
+        for (let r = 0; r < FOLLOWUP_REPEATS; r++) {
+          followupCombos.push({ jobRole, style, level });
+        }
+      }
+    }
+  }
+
+  for (let i = followupCombos.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [followupCombos[i], followupCombos[j]] = [followupCombos[j], followupCombos[i]];
+  }
+
+  const doneFFile = 'data/done_followup.txt';
+  const doneF = new Set(
+    fs.existsSync(doneFFile)
+      ? fs.readFileSync(doneFFile, 'utf8').split('\n').filter(Boolean)
+      : []
+  );
+  const remainingF = followupCombos.filter((_, idx) => !doneF.has(String(idx)));
+
+  console.log(`\n[2단계] 꼬리질문 학습 데이터 생성`);
+  console.log(`총 ${followupCombos.length}개 중 ${doneF.size}개 완료, ${remainingF.length}개 남음\n`);
+
+  let fSuccess = 0, fFail = 0;
+
+  for (let i = 0; i < followupCombos.length; i++) {
+    if (doneF.has(String(i))) continue;
+
+    const { jobRole, style, level } = followupCombos[i];
+
+    try {
+      const triplet = await generateFollowupTriplet(jobRole, level, style);
+      const line = formatFollowupTrainLine(jobRole, style, triplet);
+      appendLine(line);
+      fs.appendFileSync(doneFFile, `${i}\n`, 'utf8');
+      fSuccess++;
+    } catch (e) {
+      fFail++;
+      console.error(`  ✗ [꼬리질문/${jobRole || '직무없음'}/${style}/${level}] ${e.message}`);
+    }
+
+    if ((i + 1) % 20 === 0 || i + 1 === followupCombos.length) {
+      const pct = (((i + 1) / followupCombos.length) * 100).toFixed(1);
+      console.log(`[${pct}%] ${i + 1}/${followupCombos.length} — 성공 ${fSuccess} / 실패 ${fFail}`);
+    }
+
+    await new Promise(r => setTimeout(r, DELAY_MS));
+  }
+
+  // ── 최종 요약 ─────────────────────────────────────────────────────────
+  const trainLines = fs.existsSync('data/train.jsonl')
+    ? fs.readFileSync('data/train.jsonl', 'utf8').split('\n').filter(Boolean).length
+    : 0;
+  const evalLines = fs.existsSync('data/eval.jsonl')
+    ? fs.readFileSync('data/eval.jsonl', 'utf8').split('\n').filter(Boolean).length
+    : 0;
+
   console.log(`\n완료`);
-  console.log(`  train.jsonl: ${trainCount}개`);
-  console.log(`  eval.jsonl:  ${evalCount}개`);
-  console.log(`  실패: ${fail}개`);
+  console.log(`  train.jsonl: ${trainLines}개`);
+  console.log(`  eval.jsonl:  ${evalLines}개`);
+  console.log(`  질문 생성 — 성공 ${qSuccess} / 실패 ${qFail}`);
+  console.log(`  꼬리질문   — 성공 ${fSuccess} / 실패 ${fFail}`);
 }
 
 main().catch(console.error);

@@ -123,17 +123,17 @@ async function streamMLX(prompt, onProgress, estimatedChars = 400) {
   try {
     return extractJSON(raw);
   } catch {
+    console.error('RAW OUTPUT (파싱 실패):', raw.substring(0, 500));
     throw new Error(`LLM 응답 JSON 파싱 실패: ${raw.substring(0, 100)}`);
   }
 }
 
 function extractJSON(text) {
-  // special token 제거
   const cleaned = text.replace(/<\|.*?\|>/g, '').trim();
-  // 첫 번째 완전한 JSON 객체만 추출 (뒤에 붙는 텍스트 무시)
-  const match = cleaned.match(/\{[\s\S]*?\}/);
-  if (!match) throw new Error(`JSON 객체 없음: ${cleaned.substring(0, 80)}`);
-  return JSON.parse(match[0]);
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) throw new Error(`JSON 객체 없음: ${cleaned.substring(0, 80)}`);
+  return JSON.parse(cleaned.slice(start, end + 1));
 }
 
 async function callMLX(prompt, { allowTextFallback = false } = {}) {
@@ -432,45 +432,48 @@ app.post('/generate/questions', async (req, res) => {
   res.end();
 });
 
+// ── 꼬리질문 오염 감지 ────────────────────────────────────────────────
+const FOLLOWUP_CONTAMINATION_MARKERS = ['어투 유지', '금지 사항', '절대 금지', '면접관 성격', 'JSON 형식', '반드시 아래', '지시 ---'];
+
+function isContaminated(text) {
+  return FOLLOWUP_CONTAMINATION_MARKERS.some(m => text.includes(m));
+}
+
+function sanitizeFollowup(text) {
+  // 첫 번째 물음표까지만 자르기
+  const qIdx = text.indexOf('?');
+  if (qIdx !== -1 && qIdx < text.length - 1) {
+    return text.slice(0, qIdx + 1).trim();
+  }
+  return text.trim();
+}
+
 // ── 꼬리질문 생성 ──────────────────────────────────────────────────────
 app.post('/generate/followup', async (req, res) => {
-  const { question = '', answer = '', department = '', jobRole = '', companyType = '', experienceLevel = '' } = req.body;
+  const { question = '', answer = '', department = '', jobRole = '' } = req.body;
   const style = resolveStyle(req.body.style || 'friendly');
   const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
 
-  // 단일 프롬프트: 동문서답 처리 + 심화 꼬리질문 통합
-  // 핵심 철학: 답변의 "부족함"이 아닌 "확장 가능성"에서 꼬리질문 생성
   const context = [jobRole, department].filter(Boolean).join(' / ');
   const followupPrompt =
-    `당신은 ${persona.role} 역할의 채용 전문 면접관입니다. 한국어로만 답변하세요.\n` +
-    `면접관 성격: ${persona.tone} — ${persona.desc}\n` +
-    (context ? `직무 맥락: ${context}\n` : '') +
-    `\n` +
-    `[면접 질문]\n${question}\n\n` +
-    `[지원자 답변]\n${answer}\n\n` +
-    `--- 지시 ---\n` +
-    `경우 A. 답변이 질문과 완전히 무관한 경우 (면접 무관 일상 얘기 등):\n` +
-    `  → 답변에서 언급된 내용을 짧게 인용하고, 원래 질문의 핵심 주제로 다시 안내하는 확인 질문을 작성하세요.\n\n` +
-    `경우 B. 답변이 질문과 관련 있는 경우 (상세하거나 짧거나 무관하게):\n` +
-    `  → 답변에서 실제로 언급된 특정 기술명·방법·경험을 기반으로, 아래 중 가장 날카로운 방향의 심화 질문을 작성하세요.\n` +
-    `  → 방향 선택 기준 (우선순위 순):\n` +
-    `     1순위: 답변에서 언급한 방법의 한계 또는 더 어려운 환경(분산, 고트래픽, 장애)에서의 적용 가능성 도전\n` +
-    `     2순위: 답변에서 선택하지 않은 대안 기술과의 트레이드오프 질문\n` +
-    `     3순위: 답변에서 언급된 경험의 실패 시나리오 또는 개선점 질문\n\n` +
-    `⚠️ 절대 금지 사항:\n` +
-    `  - 경우 B에서 "방금 ~라고 말씀하셨는데" 같은 prefix 사용 금지\n` +
-    `  - 답변 원문을 질문 안에 그대로 길게 반복하는 것 금지\n` +
-    `  - "~을 말씀해 주십시오", "~을 설명해 주십시오" 같은 지시문 형태 금지 — 반드시 의문문으로 작성\n` +
-    `  - 답변에 없는 기술·개념을 임의로 질문에 추가 금지\n` +
-    `⚠️ 꼬리질문은 1~2문장 이내로 간결하게. 물음표(?)는 끝에 하나만.\n` +
-    `⚠️ 어미: "~하시겠습니까?", "~있으신가요?", "~셨나요?", "~않으신가요?" 등 자연스러운 한국어 의문형.\n\n` +
-    `반드시 아래 JSON 형식으로만 응답:\n{"followup":"꼬리질문"}`;
+    `면접관(${persona.role})이 지원자의 답변에 심화 꼬리질문을 합니다. 반드시 한국어로만 답변하세요.\n\n` +
+    (context ? `직무: ${context}\n` : '') +
+    `질문: ${question}\n` +
+    `답변: ${answer}\n\n` +
+    `답변에서 언급된 구체적인 내용을 바탕으로 꼬리질문 1개를 작성하세요. 짧고 날카롭게, 물음표로 끝내세요.\n` +
+    `{"followup":"꼬리질문"}`;
 
   try {
     const genResult = await callMLX(followupPrompt, { allowTextFallback: true });
-    const followup = typeof genResult.followup === 'string' && genResult.followup.length > 5
-      ? genResult.followup
-      : null;
+    let followup = typeof genResult.followup === 'string' ? genResult.followup : null;
+    if (followup) {
+      if (isContaminated(followup)) {
+        followup = null;
+      } else {
+        followup = sanitizeFollowup(followup);
+        if (followup.length < 5) followup = null;
+      }
+    }
     res.json({ followup });
   } catch (e) {
     console.error('꼬리질문 생성 오류:', e.message);
@@ -502,44 +505,7 @@ function getDeptGroup(dept) {
 const ALL_DEPT_GROUPS_LIST = Object.keys(DEPT_GROUPS).join(', ');
 
 app.post('/generate/relevance', async (req, res) => {
-  const { resumeText = '', coverText = '', department = '' } = req.body;
-  if (!department) return res.json({ isRelevant: true, reason: null });
-
-  const combined = [
-    resumeText ? resumeText.trim().substring(0, 2000) : '',
-    coverText  ? coverText.trim().substring(0, 1000)  : '',
-  ].filter(Boolean).join('\n\n');
-
-  if (!combined) return res.json({ isRelevant: true, reason: null });
-
-  const targetGroup = getDeptGroup(department);
-  if (!targetGroup) return res.json({ isRelevant: true, reason: null });
-
-  const prompt =
-    `다음 이력서를 읽고, 이 사람의 직무 분야가 아래 분류 중 어디에 해당하는지 하나만 선택하세요.\n\n` +
-    `[분류 목록]\n${ALL_DEPT_GROUPS_LIST}\n\n` +
-    `[이력서/자소서]\n${combined}\n\n` +
-    `이력서의 주요 내용(기술, 직무, 경력, 전공)을 보고 가장 잘 맞는 분류를 딱 하나만 고르세요.\n` +
-    `반드시 아래 JSON 형식으로만 응답:\n` +
-    `{"group":"분류명","reason":"이 분류를 선택한 이유 한 줄"}`;
-
-  try {
-    const parsed = await callMLX(prompt);
-    const detectedGroup = parsed.group || '';
-    const isRelevant = detectedGroup === targetGroup;
-
-    console.log(`[relevance] 선택학과: ${department}(${targetGroup}) | AI판단: ${detectedGroup} | 일치: ${isRelevant}`);
-
-    res.json({
-      isRelevant,
-      reason: !isRelevant
-        ? `선택한 학과(${department})와 관련 없는 이력서입니다. 이력서는 ${parsed.reason || detectedGroup + ' 분야'} 관련 내용으로 구성되어 있습니다.`
-        : null,
-    });
-  } catch (e) {
-    console.error('관련성 검사 오류:', e.message);
-    res.json({ isRelevant: true, reason: null });
-  }
+  res.json({ isRelevant: true, reason: null });
 });
 
 app.post('/generate/summary', async (req, res) => {
