@@ -25,51 +25,82 @@ function buildQuestionsHtml(
     .map((q, i) => {
       const a = answers[i] ?? "(답변 없음)"
       return `
-        <div style="margin-bottom:24px; padding:16px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
-          <p style="margin:0 0 8px; font-size:13px; font-weight:700; color:#4f52e8;">Q${i + 1}. ${q}</p>
-          <p style="margin:0; font-size:13px; color:#374151; line-height:1.7; white-space:pre-wrap;">${a}</p>
+        <div style="margin-bottom:16px; border-radius:12px; border:1px solid #e4e7ef; overflow:hidden;">
+          <div style="padding:12px 18px; background:#f8f9fc; border-bottom:1px solid #e4e7ef;">
+            <span style="display:inline-block; padding:2px 8px; border-radius:6px; background:#eef0fd; color:#4f52e8; font-size:11px; font-weight:700; margin-bottom:6px;">Q${i + 1}</span>
+            <p style="margin:0; font-size:13.5px; font-weight:700; color:#0d1035; line-height:1.5;">${q}</p>
+          </div>
+          <div style="padding:14px 18px; background:#ffffff;">
+            <p style="margin:0; font-size:13px; color:#374151; line-height:1.75; white-space:pre-wrap;">${a}</p>
+          </div>
         </div>`
     })
     .join("")
 
   const surveyHtml = surveys && surveys.length > 0
-    ? `<div style="margin-bottom:28px; padding:16px; background:#f5f3ff; border-radius:10px; border:1px solid #ddd6fe;">
-         <p style="margin:0 0 10px; font-size:12px; font-weight:700; color:#5b21b6; letter-spacing:0.05em;">📊 설문 응답</p>
-         ${surveys.map(s =>
-           `<div style="margin-bottom:6px; display:flex; gap:8px; align-items:flex-start;">
-              <span style="font-size:12px; color:#7c3aed; font-weight:600; min-width:140px;">${s.label}</span>
-              <span style="font-size:12px; color:#374151;">${s.value}</span>
-            </div>`
-         ).join("")}
+    ? `<div style="margin-bottom:24px; border-radius:12px; border:1px solid #e4e7ef; overflow:hidden;">
+         <div style="padding:12px 18px; background:#f8f9fc; border-bottom:1px solid #e4e7ef;">
+           <p style="margin:0; font-size:11px; font-weight:700; color:#6b7280; letter-spacing:0.06em; text-transform:uppercase;">설문 응답</p>
+         </div>
+         <div style="padding:14px 18px; background:#ffffff;">
+           ${surveys.map(s =>
+             `<div style="display:flex; align-items:center; gap:12px; padding:6px 0; border-bottom:1px solid #f3f4f6;">
+                <span style="font-size:12px; color:#9ca3af; min-width:130px;">${s.label}</span>
+                <span style="font-size:12.5px; font-weight:600; color:#0d1035;">${s.value}</span>
+              </div>`
+           ).join("")}
+         </div>
        </div>`
     : ""
 
-  return `
-<!DOCTYPE html>
+  const now = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })
+
+  return `<!DOCTYPE html>
 <html lang="ko">
-<head><meta charset="UTF-8"/></head>
-<body style="margin:0; padding:0; background:#f3f4f6; font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;">
-  <div style="max-width:640px; margin:40px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+</head>
+<body style="margin:0; padding:0; background:#f8f9fc; font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;">
+  <div style="max-width:620px; margin:32px auto; padding:0 16px 40px;">
 
-    <!-- 헤더 -->
-    <div style="background:linear-gradient(135deg,#4f52e8,#7c3aed); padding:32px 32px 24px;">
-      <h1 style="margin:0; font-size:22px; font-weight:800; color:#fff;">AI 면접 어시스턴트</h1>
-      <p style="margin:6px 0 0; font-size:14px; color:rgba(255,255,255,0.8);">면접 질문 &amp; 답변 결과</p>
+    <!-- 헤더 로고 영역 -->
+    <div style="padding:28px 0 20px; text-align:center;">
+      <div style="display:inline-flex; align-items:center; gap:8px;">
+        <div style="width:32px; height:32px; background:#0d1035; border-radius:8px; display:inline-block;"></div>
+        <span style="font-size:15px; font-weight:800; color:#0d1035; letter-spacing:-0.3px;">AI기반 맞춤 면접 도우미</span>
+      </div>
     </div>
 
-    <!-- 본문 -->
-    <div style="padding:28px 32px;">
-      ${surveyHtml}
-      <p style="margin:0 0 20px; font-size:14px; color:#6b7280;">
-        총 <strong style="color:#374151;">${questions.length}개</strong> 질문에 대한 면접 결과입니다.
-      </p>
-      ${rows}
+    <!-- 메인 카드 -->
+    <div style="background:#ffffff; border-radius:16px; border:1px solid #e4e7ef; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.05);">
+
+      <!-- 카드 헤더 -->
+      <div style="padding:28px 32px 24px; border-bottom:1px solid #f0f2f8;">
+        <p style="margin:0 0 6px; font-size:11px; font-weight:700; color:#4f52e8; letter-spacing:0.08em; text-transform:uppercase;">면접 결과 리포트</p>
+        <h1 style="margin:0 0 6px; font-size:22px; font-weight:800; color:#0d1035; letter-spacing:-0.5px;">면접이 완료되었습니다</h1>
+        <p style="margin:0; font-size:13px; color:#9ca3af;">${now} · 총 ${questions.length}개 질문</p>
+      </div>
+
+      <!-- 본문 -->
+      <div style="padding:24px 32px;">
+        ${surveyHtml}
+
+        <!-- 질문 목록 레이블 -->
+        <p style="margin:0 0 14px; font-size:11px; font-weight:700; color:#6b7280; letter-spacing:0.06em; text-transform:uppercase;">질문 &amp; 답변</p>
+
+        ${rows}
+      </div>
+
+      <!-- 카드 푸터 -->
+      <div style="padding:18px 32px; background:#f8f9fc; border-top:1px solid #f0f2f8; display:flex; align-items:center; justify-content:space-between;">
+        <p style="margin:0; font-size:11.5px; color:#c4c9d6;">본 메일은 자동 발송된 메일입니다.</p>
+        <p style="margin:0; font-size:11.5px; color:#c4c9d6;">AI 면접 도우미</p>
+      </div>
     </div>
 
-    <!-- 푸터 -->
-    <div style="padding:20px 32px; background:#f9fafb; border-top:1px solid #e5e7eb; text-align:center;">
-      <p style="margin:0; font-size:12px; color:#9ca3af;">AI 면접 어시스턴트가 보낸 자동 발송 메일입니다.</p>
-    </div>
+    <!-- 하단 여백 문구 -->
+    <p style="text-align:center; margin:20px 0 0; font-size:11px; color:#c4c9d6;">면접 준비에 도움이 되셨으면 합니다.</p>
   </div>
 </body>
 </html>`
