@@ -9,6 +9,7 @@ import authRoutes from "./routes/authRoutes"
 import reportRoutes from "./routes/reportRoutes"
 import knowledgeRoutes from "./routes/knowledgeRoutes"
 import aiRoutes from "./routes/aiRoutes"
+import emailRoutes from "./routes/emailRoutes"
 
 async function ensureDatabase() {
   console.log("[DB] 마이그레이션 실행 중...")
@@ -27,6 +28,7 @@ app.use("/knowledge", knowledgeRoutes)
 app.use("/interview", interviewRoutes)
 app.use("/upload", uploadRoutes)
 app.use("/ai", aiRoutes)
+app.use("/email", emailRoutes)
 
 app.get("/", (_, res) => res.json({ ok: true }))
 

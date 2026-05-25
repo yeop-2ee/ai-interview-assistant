@@ -7,7 +7,8 @@ import { IconArrowRight, IconMic } from "@/components/Icons";
 import { useFaceAnalysis } from "@/hooks/useFaceAnalysis";
 import { INTERVIEW_INTRO_QUESTION, useInterviewQuestions } from "@/hooks/useInterviewQuestions";
 import { useCallMedia } from "@/hooks/useCallMedia";
-import { parseSSE } from "@/lib/sseStream";
+import { parseSSE } from "@/lib/sseStream"
+import SurveyEmailModal from "@/components/SurveyEmailModal";
 
 const MEDIA_API = process.env.NEXT_PUBLIC_MEDIA_API!;
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
@@ -126,6 +127,7 @@ function ReadyScreen({
   const [micErr, setMicErr] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+  const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [mediaServerOk, setMediaServerOk] = useState<boolean | null>(null);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -198,6 +200,12 @@ function ReadyScreen({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!questionsLoading) return;
+    const t = setTimeout(() => setShowSurveyModal(true), 4000);
+    return () => clearTimeout(t);
+  }, [questionsLoading]);
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] flex flex-col">
@@ -564,7 +572,7 @@ function ReadyScreen({
               <div className="bg-[#f8f9fc] rounded-xl border border-[#e4e7ef] px-4 py-3 mb-4 flex items-center justify-around">
                 {[
                   { label: "준비된 질문", value: questionsLoading ? `${questionsProgress}%` : `${questionCount}개` },
-                  { label: "예상 소요 시간", value: "약 15분" },
+                  { label: "예상 소요 시간", value: questionsLoading || questionCount === 0 ? "-" : `약 ${questionCount * 4}~${questionCount * 5}분` },
                   { label: "면접관 스타일", value: interviewStyle || "부드러운" },
                 ].map((s, i, arr) => (
                   <div key={s.label} className={`flex flex-col items-center gap-0.5 text-center ${i < arr.length - 1 ? "border-r border-[#e4e7ef] pr-6 mr-6" : ""}`}>
@@ -595,36 +603,6 @@ function ReadyScreen({
                 </div>
               </div>
 
-              {/* 생성된 질문 목록 프리뷰 */}
-              {!questionsLoading && questionList.length > 0 && (
-                <div className="mb-4 rounded-xl border border-[#e4e7ef] overflow-hidden">
-                  <div className="px-4 py-2.5 bg-[#f8f9fc] border-b border-[#e4e7ef] flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-[#374151]">생성된 면접 질문</span>
-                    <div className="flex items-center gap-2">
-                      {/* 카테고리별 카운트 */}
-                      {(["소개","공통","직무","인성","전공","이력서"] as const).map((cat) => {
-                        const cnt = questionCategories.filter((c) => c === cat).length;
-                        return cnt > 0 ? (
-                          <span key={cat} className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${CATEGORY_STYLE[cat]}`}>
-                            {cat} {cnt}
-                          </span>
-                        ) : null;
-                      })}
-                    </div>
-                  </div>
-                  <div className="divide-y divide-[#f8f9fc] max-h-[260px] overflow-y-auto">
-                    {questionList.map((q, i) => (
-                      <div key={i} className="px-4 py-2.5 flex items-start gap-2.5 hover:bg-[#fafbff] transition-colors">
-                        <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold mt-0.5 ${CATEGORY_STYLE[questionCategories[i]] ?? "bg-gray-100 text-gray-500"}`}>
-                          {questionCategories[i] ?? "기타"}
-                        </span>
-                        <span className="text-[12px] text-[#374151] leading-relaxed">{q}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <button
                 onClick={() => {
                   if (selectedCamId) sessionStorage.setItem("selectedCamId", selectedCamId);
@@ -653,6 +631,9 @@ function ReadyScreen({
           </div>
         </div>
       </div>
+      {showSurveyModal && (
+        <SurveyEmailModal context="questions" onClose={() => setShowSurveyModal(false)} />
+      )}
     </div>
   );
 }
@@ -686,6 +667,8 @@ export default function InterviewPage() {
   const [reportReady, setReportReady] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
   const reportStartedRef = useRef(false);
+  const [showReportSurveyModal, setShowReportSurveyModal] = useState(false);
+  const reportSurveyShownRef = useRef(false);
   const [mediaServerError, setMediaServerError] = useState(false);
   const [lipVideoSrc, setLipVideoSrc] = useState<string | null>(null);
   const [sessionId] = useState(() => `session_${Date.now()}`);
@@ -799,6 +782,13 @@ export default function InterviewPage() {
       }
     })();
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "done" || !reportLoading || reportSurveyShownRef.current) return;
+    reportSurveyShownRef.current = true;
+    const t = setTimeout(() => setShowReportSurveyModal(true), 3000);
+    return () => clearTimeout(t);
+  }, [phase, reportLoading]);
 
   const processAnswer = useCallback((text: string, msgId?: number) => {
     const currentQIdx = qIdxRef.current;
@@ -1686,6 +1676,14 @@ export default function InterviewPage() {
             </div>
           </div>
         </div>
+      )}
+      {showReportSurveyModal && (
+        <SurveyEmailModal
+          context="report"
+          questions={messages.filter(m => m.role === "ai" && !m.text.includes("수고하셨습니다")).map(m => m.text)}
+          answers={messages.filter(m => m.role === "user").map(m => m.text)}
+          onClose={() => setShowReportSurveyModal(false)}
+        />
       )}
     </>
   );
