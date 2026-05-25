@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express"
 import nodemailer from "nodemailer"
+import { PrismaClient } from "@prisma/client"
 
 const router = Router()
+const prisma = new PrismaClient()
 
 function getTransporter() {
   return nodemailer.createTransport({
@@ -85,6 +87,28 @@ router.post("/send-results", async (req: Request, res: Response) => {
 
   if (!email || typeof email !== "string" || !email.includes("@")) {
     return res.status(400).json({ ok: false, message: "유효하지 않은 이메일입니다." })
+  }
+
+  // 설문 응답 DB 저장
+  if (surveys && surveys.length > 0) {
+    try {
+      const purpose     = surveys.find(s => s.label === "면접 목적")?.value ?? null
+      const naturalnessRaw = surveys.find(s => s.label === "AI 면접관 자연스러움")?.value
+      const naturalness = naturalnessRaw ? parseInt(naturalnessRaw) : null
+      const feedback    = surveys.find(s => s.label === "개선 의견")?.value ?? null
+
+      await prisma.surveyResponse.create({
+        data: {
+          purpose,
+          naturalness: isNaN(naturalness as number) ? null : naturalness,
+          feedback,
+          email,
+        },
+      })
+      console.log("[survey] DB 저장 완료")
+    } catch (e) {
+      console.error("[survey] DB 저장 실패:", e instanceof Error ? e.message : e)
+    }
   }
 
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
