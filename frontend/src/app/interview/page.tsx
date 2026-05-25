@@ -1178,8 +1178,8 @@ export default function InterviewPage() {
   const displayQIdx = phase === "done"
     ? questionsRef.current.length
     : sttLoading && pendingAnswer !== null
-      ? Math.min(qIdx + 1, questionsRef.current.length)
-      : qIdx;
+      ? Math.min(qIdx + 2, questionsRef.current.length)
+      : qIdx + 1;
   const progress = Math.round((displayQIdx / questionsRef.current.length) * 100);
   const currentQ = questionsRef.current[Math.min(qIdx, questionsRef.current.length - 1)];
   const currentCategory = questionCategories[qIdx] ?? (qIdx === 0 ? "소개" : "면접");
