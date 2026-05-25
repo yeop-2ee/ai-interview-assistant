@@ -1704,7 +1704,6 @@ export default function InterviewPage() {
       )}
       {showReportSurveyModal && (
         <SurveyEmailModal
-          context="report"
           questions={messages.filter(m => m.role === "ai" && !m.text.includes("수고하셨습니다")).map(m => m.text)}
           answers={messages.filter(m => m.role === "user").map(m => m.text)}
           onClose={() => setShowReportSurveyModal(false)}

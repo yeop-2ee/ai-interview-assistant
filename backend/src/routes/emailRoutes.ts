@@ -18,7 +18,7 @@ function getTransporter() {
 function buildQuestionsHtml(
   questions: string[],
   answers: string[],
-  survey?: { label: string; value: string }
+  surveys?: { label: string; value: string }[]
 ): string {
   const rows = questions
     .map((q, i) => {
@@ -31,9 +31,15 @@ function buildQuestionsHtml(
     })
     .join("")
 
-  const surveyHtml = survey
-    ? `<div style="margin-bottom:24px; padding:12px 16px; background:#ede9fe; border-radius:8px;">
-         <p style="margin:0; font-size:12px; color:#5b21b6;">📊 설문 응답 — ${survey.label}: <strong>${survey.value}</strong></p>
+  const surveyHtml = surveys && surveys.length > 0
+    ? `<div style="margin-bottom:28px; padding:16px; background:#f5f3ff; border-radius:10px; border:1px solid #ddd6fe;">
+         <p style="margin:0 0 10px; font-size:12px; font-weight:700; color:#5b21b6; letter-spacing:0.05em;">📊 설문 응답</p>
+         ${surveys.map(s =>
+           `<div style="margin-bottom:6px; display:flex; gap:8px; align-items:flex-start;">
+              <span style="font-size:12px; color:#7c3aed; font-weight:600; min-width:140px;">${s.label}</span>
+              <span style="font-size:12px; color:#374151;">${s.value}</span>
+            </div>`
+         ).join("")}
        </div>`
     : ""
 
@@ -70,11 +76,11 @@ function buildQuestionsHtml(
 
 // POST /email/send-results
 router.post("/send-results", async (req: Request, res: Response) => {
-  const { email, questions, answers, survey } = req.body as {
+  const { email, questions, answers, surveys } = req.body as {
     email: string
     questions: string[]
     answers: string[]
-    survey?: { label: string; value: string }
+    surveys?: { label: string; value: string }[]
   }
 
   if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -92,7 +98,7 @@ router.post("/send-results", async (req: Request, res: Response) => {
       from: `"AI 면접 어시스턴트" <${process.env.SMTP_USER}>`,
       to: email,
       subject: "AI 면접 결과 — 질문 및 답변",
-      html: buildQuestionsHtml(questions ?? [], answers ?? [], survey),
+      html: buildQuestionsHtml(questions ?? [], answers ?? [], surveys),
     })
     console.log(`[email] 전송 완료 → ${email}`)
     res.json({ ok: true })
