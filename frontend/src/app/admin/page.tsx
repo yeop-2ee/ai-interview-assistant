@@ -83,7 +83,7 @@ function HBar({ label, count, total, color = "#4f52e8" }: { label: string; count
 
 export default function AdminPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"knowledge" | "survey">("knowledge");
+  const [tab, setTab] = useState<"knowledge" | "survey" | "users">("knowledge");
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
 
@@ -98,6 +98,12 @@ export default function AdminPage() {
   // survey tab state
   const [surveyStats, setSurveyStats] = useState<SurveyStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+
+  // users tab state
+  type UserRow = { id: number; name: string; email: string; role: string; createdAt: string; reportCount: number };
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -130,6 +136,40 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === "survey" && !surveyStats) fetchSurveyStats();
   }, [tab, surveyStats, fetchSurveyStats]);
+
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/users`);
+      const data = await res.json();
+      setUsers(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+    finally { setLoadingUsers(false); }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "users" && users.length === 0) fetchUsers();
+  }, [tab, users.length, fetchUsers]);
+
+  const handleRoleChange = async (id: number, newRole: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/users/${id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (!res.ok) return;
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
+    } catch { /* ignore */ }
+  };
+
+  const handleDeleteUser = async (id: number, name: string) => {
+    if (!confirm(`"${name}" 계정을 삭제하시겠습니까?\n연관된 면접 리포트도 함께 삭제됩니다.`)) return;
+    try {
+      await fetch(`${BACKEND_URL}/admin/users/${id}`, { method: "DELETE" });
+      setUsers(prev => prev.filter(u => u.id !== id));
+    } catch { /* ignore */ }
+  };
 
   const handleAdd = async () => {
     if (!selectedDept || !selectedSubject || !content.trim() || adding) return;
@@ -188,6 +228,10 @@ export default function AdminPage() {
               {
                 key: "knowledge" as const, label: "전공지식 관리",
                 icon: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>,
+              },
+              {
+                key: "users" as const, label: "사용자 관리",
+                icon: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
               },
               {
                 key: "survey" as const, label: "설문 통계",
@@ -312,6 +356,117 @@ export default function AdminPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* ── 사용자 관리 탭 ── */}
+          {tab === "users" && (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-[22px] font-bold text-[#0d1035] tracking-tight">사용자 관리</h1>
+                  <p className="text-[13px] text-[#9ca3af] mt-0.5">가입된 사용자 목록을 확인하고 역할을 관리합니다.</p>
+                </div>
+                <button onClick={fetchUsers} disabled={loadingUsers}
+                  className="flex items-center gap-1.5 text-[12px] text-[#6b7280] hover:text-[#374151] px-3 py-1.5 rounded-lg border border-[#e4e7ef] hover:bg-[#f8f9fc] transition-all disabled:opacity-50">
+                  <svg className={`w-3.5 h-3.5 ${loadingUsers ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                  새로고침
+                </button>
+              </div>
+
+              {/* 요약 카드 */}
+              <div className="grid grid-cols-3 gap-4">
+                <StatCard label="전체 사용자" value={users.length} sub="가입 계정 수" />
+                <StatCard label="일반 사용자" value={users.filter(u => u.role === "user").length} sub="role: user" />
+                <StatCard label="관리자" value={users.filter(u => u.role === "admin").length} sub="role: admin" />
+              </div>
+
+              {/* 검색 */}
+              <div className="relative">
+                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c4c9d6]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="이름 또는 이메일로 검색..."
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#e4e7ef] rounded-xl text-[13px] text-[#0d1035] placeholder-[#c4c9d6] focus:outline-none focus:border-[#4f52e8] transition-all"
+                />
+              </div>
+
+              {/* 사용자 테이블 */}
+              <div className="bg-white rounded-2xl border border-[#e4e7ef] overflow-hidden">
+                <div className="grid grid-cols-[1fr_1fr_80px_60px_80px] gap-0 px-6 py-3 border-b border-[#f0f2f8] text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wider">
+                  <span>이름 / 이메일</span>
+                  <span>가입일</span>
+                  <span className="text-center">리포트</span>
+                  <span className="text-center">역할</span>
+                  <span />
+                </div>
+
+                {loadingUsers ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 rounded-full border-2 border-[#4f52e8]/20 border-t-[#4f52e8] animate-spin" />
+                  </div>
+                ) : users.length === 0 ? (
+                  <div className="py-16 text-center text-[13px] text-[#c4c9d6]">등록된 사용자가 없습니다.</div>
+                ) : (
+                  <div className="divide-y divide-[#f8f9fc] max-h-[520px] overflow-y-auto">
+                    {users
+                      .filter(u =>
+                        u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+                        u.email.toLowerCase().includes(userSearch.toLowerCase())
+                      )
+                      .map(u => (
+                        <div key={u.id} className="grid grid-cols-[1fr_1fr_80px_60px_80px] items-center gap-0 px-6 py-4 hover:bg-[#fafbff] transition-colors group">
+                          {/* 이름 + 이메일 */}
+                          <div>
+                            <p className="text-[13px] font-semibold text-[#0d1035]">{u.name}</p>
+                            <p className="text-[11.5px] text-[#9ca3af] mt-0.5">{u.email}</p>
+                          </div>
+                          {/* 가입일 */}
+                          <span className="text-[12px] text-[#6b7280]">
+                            {new Date(u.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric" })}
+                          </span>
+                          {/* 리포트 수 */}
+                          <span className="text-[13px] font-semibold text-[#374151] text-center">{u.reportCount}</span>
+                          {/* 역할 배지 */}
+                          <div className="flex justify-center">
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                              u.role === "admin" ? "bg-[#eef0fd] text-[#4f52e8]" : "bg-[#f3f4f6] text-[#6b7280]"
+                            }`}>
+                              {u.role === "admin" ? "관리자" : "사용자"}
+                            </span>
+                          </div>
+                          {/* 액션 버튼 */}
+                          <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleRoleChange(u.id, u.role === "admin" ? "user" : "admin")}
+                              title={u.role === "admin" ? "사용자로 변경" : "관리자로 변경"}
+                              className="w-7 h-7 rounded-lg hover:bg-[#eef0fd] text-[#c4c9d6] hover:text-[#4f52e8] flex items-center justify-center transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="17 11 21 7 17 3"/><line x1="21" y1="7" x2="9" y2="7"/>
+                                <polyline points="7 21 3 17 7 13"/><line x1="3" y1="17" x2="15" y2="17"/>
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(u.id, u.name)}
+                              title="계정 삭제"
+                              className="w-7 h-7 rounded-lg hover:bg-rose-50 text-[#c4c9d6] hover:text-rose-400 flex items-center justify-center transition-colors"
+                            >
+                              <IconX className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
               </div>
             </>
           )}

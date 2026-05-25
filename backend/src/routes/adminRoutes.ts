@@ -66,4 +66,58 @@ router.get("/surveys", async (_req: Request, res: Response) => {
   }
 })
 
+// GET /admin/users — 사용자 목록
+router.get("/users", async (_req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        _count: { select: { reports: true } },
+      },
+    })
+    res.json(users.map(u => ({ ...u, reportCount: u._count.reports })))
+  } catch (e) {
+    console.error("[admin/users] 오류:", e)
+    res.status(500).json({ error: "사용자 목록 조회 실패" })
+  }
+})
+
+// PATCH /admin/users/:id/role — 역할 변경
+router.patch("/users/:id/role", async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const { role } = req.body as { role: string }
+  if (!["user", "admin"].includes(role)) {
+    res.status(400).json({ error: "유효하지 않은 역할입니다." })
+    return
+  }
+  try {
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { role },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    })
+    res.json(updated)
+  } catch (e) {
+    console.error("[admin/users/role] 오류:", e)
+    res.status(500).json({ error: "역할 변경 실패" })
+  }
+})
+
+// DELETE /admin/users/:id — 사용자 삭제
+router.delete("/users/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  try {
+    await prisma.user.delete({ where: { id } })
+    res.json({ success: true })
+  } catch (e) {
+    console.error("[admin/users/delete] 오류:", e)
+    res.status(500).json({ error: "사용자 삭제 실패" })
+  }
+})
+
 export default router
