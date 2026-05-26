@@ -10,6 +10,7 @@ function validateString(val: unknown, maxLen: number): string {
 
 // POST /ai/summary — 이력서 요약 (SSE)
 router.post("/summary", async (req: Request, res: Response) => {
+  console.log("[summary] 요청 수신")
   res.setHeader("Content-Type", "text/event-stream")
   res.setHeader("Cache-Control", "no-cache")
   res.setHeader("Connection", "keep-alive")
@@ -24,11 +25,12 @@ router.post("/summary", async (req: Request, res: Response) => {
   }
 
   try {
+    console.log("[summary] AI 서버 요청 중...")
     const aiRes = await fetch(`${AI_SERVER_URL()}/generate/summary`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(300000),
     })
     if (!aiRes.ok || !aiRes.body) throw new Error(`AI 서버 오류: ${aiRes.status}`)
 
@@ -46,6 +48,7 @@ router.post("/summary", async (req: Request, res: Response) => {
       }
     }
   } catch (e) {
+    console.error("[summary] 오류:", e instanceof Error ? e.message : e)
     send({ type: "error", message: e instanceof Error ? e.message : "오류" })
   }
   res.end()
@@ -66,7 +69,7 @@ router.post("/relevance", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(300000),
     })
     const data = await aiRes.json()
     console.log("[relevance proxy] AI응답:", JSON.stringify(data))
@@ -77,8 +80,9 @@ router.post("/relevance", async (req: Request, res: Response) => {
   }
 })
 
-// POST /ai/followup — 꼬리질문 생성
+// POST /ai/followup — 꼬리질문 생성 (임시 비활성화)
 router.post("/followup", async (req: Request, res: Response) => {
+  return res.json({ followup: null })
   const body = {
     question:        validateString(req.body.question,        500),
     answer:          validateString(req.body.answer,          500),

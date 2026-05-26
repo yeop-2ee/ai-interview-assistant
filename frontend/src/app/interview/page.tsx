@@ -7,7 +7,9 @@ import { IconArrowRight, IconMic } from "@/components/Icons";
 import { useFaceAnalysis } from "@/hooks/useFaceAnalysis";
 import { INTERVIEW_INTRO_QUESTION, useInterviewQuestions } from "@/hooks/useInterviewQuestions";
 import { useCallMedia } from "@/hooks/useCallMedia";
-import { parseSSE } from "@/lib/sseStream";
+import { parseSSE } from "@/lib/sseStream"
+import SurveyEmailModal from "@/components/SurveyEmailModal"
+import InterviewGuideModal from "@/components/InterviewGuideModal";
 
 const MEDIA_API = process.env.NEXT_PUBLIC_MEDIA_API!;
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
@@ -19,10 +21,11 @@ function now() {
 type Msg = { id?: number; role: "ai" | "user"; text: string; time: string };
 
 /* ── AI 아바타 ── */
-function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, avatarSrc }: {
+function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatarSrc }: {
   speaking: boolean;
   lipVideoSrc: string | null;
   onVideoEnded: () => void;
+  onVideoMetadata?: (durationMs: number) => void;
   avatarSrc?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -58,6 +61,7 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, avatarSrc }: {
           controls={false}
           disablePictureInPicture
           disableRemotePlayback
+          onLoadedMetadata={() => { if (videoRef.current && onVideoMetadata) onVideoMetadata(videoRef.current.duration * 1000); }}
           onEnded={onVideoEnded}
           onError={onVideoEnded}
           onPause={handlePause}
@@ -126,6 +130,7 @@ function ReadyScreen({
   const [micErr, setMicErr] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [mediaServerOk, setMediaServerOk] = useState<boolean | null>(null);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -198,6 +203,12 @@ function ReadyScreen({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!questionsLoading) return;
+    const t = setTimeout(() => setShowGuideModal(true), 4000);
+    return () => clearTimeout(t);
+  }, [questionsLoading]);
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] flex flex-col">
@@ -414,16 +425,29 @@ function ReadyScreen({
                       {mediaServerOk === false ? "서버 연결 불가" : mediaServerOk === true ? "서버 정상" : "서버 확인 중..."}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setShowDeviceModal(true)}
-                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e4e7ef] bg-white text-[11px] font-medium text-[#6b7280] hover:border-[#4f52e8] hover:text-[#4f52e8] transition-all"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                    </svg>
-                    장치 설정
-                  </button>
+                  <div className="mt-1 flex items-center gap-2">
+                    <button
+                      onClick={() => setShowGuideModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e4e7ef] bg-white text-[11px] font-medium text-[#6b7280] hover:border-[#4f52e8] hover:text-[#4f52e8] transition-all"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      면접 안내
+                    </button>
+                    <button
+                      onClick={() => setShowDeviceModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e4e7ef] bg-white text-[11px] font-medium text-[#6b7280] hover:border-[#4f52e8] hover:text-[#4f52e8] transition-all"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                      </svg>
+                      장치 설정
+                    </button>
+                  </div>
                 </div>
 
                 {/* 장치 설정 모달 */}
@@ -564,7 +588,7 @@ function ReadyScreen({
               <div className="bg-[#f8f9fc] rounded-xl border border-[#e4e7ef] px-4 py-3 mb-4 flex items-center justify-around">
                 {[
                   { label: "준비된 질문", value: questionsLoading ? `${questionsProgress}%` : `${questionCount}개` },
-                  { label: "예상 소요 시간", value: "약 15분" },
+                  { label: "예상 소요 시간", value: questionsLoading || questionCount === 0 ? "-" : `약 ${questionCount * 4}~${questionCount * 5}분` },
                   { label: "면접관 스타일", value: interviewStyle || "부드러운" },
                 ].map((s, i, arr) => (
                   <div key={s.label} className={`flex flex-col items-center gap-0.5 text-center ${i < arr.length - 1 ? "border-r border-[#e4e7ef] pr-6 mr-6" : ""}`}>
@@ -595,36 +619,6 @@ function ReadyScreen({
                 </div>
               </div>
 
-              {/* 생성된 질문 목록 프리뷰 */}
-              {!questionsLoading && questionList.length > 0 && (
-                <div className="mb-4 rounded-xl border border-[#e4e7ef] overflow-hidden">
-                  <div className="px-4 py-2.5 bg-[#f8f9fc] border-b border-[#e4e7ef] flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-[#374151]">생성된 면접 질문</span>
-                    <div className="flex items-center gap-2">
-                      {/* 카테고리별 카운트 */}
-                      {(["소개","공통","직무","인성","전공","이력서"] as const).map((cat) => {
-                        const cnt = questionCategories.filter((c) => c === cat).length;
-                        return cnt > 0 ? (
-                          <span key={cat} className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${CATEGORY_STYLE[cat]}`}>
-                            {cat} {cnt}
-                          </span>
-                        ) : null;
-                      })}
-                    </div>
-                  </div>
-                  <div className="divide-y divide-[#f8f9fc] max-h-[260px] overflow-y-auto">
-                    {questionList.map((q, i) => (
-                      <div key={i} className="px-4 py-2.5 flex items-start gap-2.5 hover:bg-[#fafbff] transition-colors">
-                        <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold mt-0.5 ${CATEGORY_STYLE[questionCategories[i]] ?? "bg-gray-100 text-gray-500"}`}>
-                          {questionCategories[i] ?? "기타"}
-                        </span>
-                        <span className="text-[12px] text-[#374151] leading-relaxed">{q}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <button
                 onClick={() => {
                   if (selectedCamId) sessionStorage.setItem("selectedCamId", selectedCamId);
@@ -653,6 +647,9 @@ function ReadyScreen({
           </div>
         </div>
       </div>
+      {showGuideModal && (
+        <InterviewGuideModal onClose={() => setShowGuideModal(false)} />
+      )}
     </div>
   );
 }
@@ -666,6 +663,11 @@ export default function InterviewPage() {
   const [qIdx, setQIdx] = useState(0);
   const [recording, setRecording] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [aiSpeakingText, setAiSpeakingText] = useState("");
+  const [aiDisplayText, setAiDisplayText] = useState("");
+  const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const typewriterDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typewriterTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [camError, setCamError] = useState(false);
   const [layout, setLayout] = useState<"split" | "pip" | "full">("pip");
@@ -686,6 +688,8 @@ export default function InterviewPage() {
   const [reportReady, setReportReady] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
   const reportStartedRef = useRef(false);
+  const [showReportSurveyModal, setShowReportSurveyModal] = useState(false);
+  const reportSurveyShownRef = useRef(false);
   const [mediaServerError, setMediaServerError] = useState(false);
   const [lipVideoSrc, setLipVideoSrc] = useState<string | null>(null);
   const [sessionId] = useState(() => `session_${Date.now()}`);
@@ -708,7 +712,7 @@ export default function InterviewPage() {
   // ── 커스텀 훅 ──
   const {
     questions, questionsRef, setQuestions, questionCategories,
-    questionsLoading, questionsProgress, questionsStep,
+    questionsLoading, questionsProgress, questionsStep, questionError,
     interviewStyle, avatarSrc, resolvedStyleRef,
   } = useInterviewQuestions();
 
@@ -736,6 +740,14 @@ export default function InterviewPage() {
   useEffect(() => { qIdxRef.current = qIdx; }, [qIdx]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // 질문 수 부족 시 설정 화면으로 리다이렉트
+  useEffect(() => {
+    if (!questionsLoading && questionError) {
+      sessionStorage.setItem("questionGenerationError", "true");
+      router.replace("/setup");
+    }
+  }, [questionsLoading, questionError, router]);
 
 
   useEffect(() => {
@@ -799,6 +811,13 @@ export default function InterviewPage() {
       }
     })();
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "done" || !reportLoading || reportSurveyShownRef.current) return;
+    reportSurveyShownRef.current = true;
+    const t = setTimeout(() => setShowReportSurveyModal(true), 3000);
+    return () => clearTimeout(t);
+  }, [phase, reportLoading]);
 
   const processAnswer = useCallback((text: string, msgId?: number) => {
     const currentQIdx = qIdxRef.current;
@@ -928,14 +947,81 @@ export default function InterviewPage() {
   }, [sessionId]);
 
   // 사전 렌더링 영상 재생 완료 시 호출
+  const startTypewriter = useCallback((text: string, durationMs: number) => {
+    // 이전 타이머 전체 정리
+    typewriterTimeoutsRef.current.forEach(clearTimeout);
+    typewriterTimeoutsRef.current = [];
+    if (typewriterDelayRef.current) clearTimeout(typewriterDelayRef.current);
+    if (typewriterTimerRef.current) { clearInterval(typewriterTimerRef.current); typewriterTimerRef.current = null; }
+    setAiDisplayText("");
+
+    // 문자별 발화 가중치
+    const getWeight = (char: string, prev: string): number => {
+      // 문장 종결 부호 — 가장 긴 쉼
+      if ('.?!？！'.includes(char)) return 5.5;
+      if (char === '…') return 7.0;
+      // 쉼표·콜론·세미콜론 — 중간 쉼
+      if (',:;،'.includes(char)) return 2.8;
+      // 대시·괄호 닫힘 — 짧은 쉼
+      if ('—–)】』"\''.includes(char)) return 2.0;
+      // 공백: 앞 글자가 구두점이면 이미 쉬었으므로 매우 짧게
+      if (char === ' ') return '.?!,;:…—–'.includes(prev) ? 0.2 : 0.5;
+      // 한글 음절 (AC00–D7A3)
+      const code = char.charCodeAt(0);
+      if (code >= 0xAC00 && code <= 0xD7A3) return 1.0;
+      // 숫자·영문은 한 글자당 발화량이 적음
+      if (/[0-9A-Za-z]/.test(char)) return 0.7;
+      return 1.0;
+    };
+
+    // 전체 가중치 합산
+    let totalWeight = 0;
+    for (let i = 0; i < text.length; i++) totalWeight += getWeight(text[i], text[i - 1] ?? '');
+
+    // TTS 시작 무음 50ms, 끝 무음 50ms 제외 — 나머지 구간에 정확히 1:1 매핑
+    const startDelay = 50;
+    const endSilence = 50;
+    const speakDuration = Math.max(400, durationMs - startDelay - endSilence);
+    const baseUnit = speakDuration / totalWeight;
+
+    // 글자마다 개별 setTimeout — 미세 지터(±8%) 추가로 기계적 느낌 제거
+    let elapsed = startDelay;
+    for (let i = 0; i < text.length; i++) {
+      const idx = i + 1;
+      const w = getWeight(text[i], text[i - 1] ?? '');
+      const jitter = baseUnit * w < 60 ? 0 : (Math.random() - 0.5) * baseUnit * 0.08;
+      const t = setTimeout(() => {
+        setAiDisplayText(text.slice(0, idx));
+      }, elapsed);
+      typewriterTimeoutsRef.current.push(t);
+      elapsed += w * baseUnit + jitter;
+    }
+  }, []);
+
+  const stopTypewriter = useCallback(() => {
+    typewriterTimeoutsRef.current.forEach(clearTimeout);
+    typewriterTimeoutsRef.current = [];
+    if (typewriterDelayRef.current) clearTimeout(typewriterDelayRef.current);
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+    setAiDisplayText("");
+  }, []);
+
   const handleAvatarVideoEnded = useCallback(() => {
+    stopTypewriter();
     setAiSpeaking(false);
+    setAiSpeakingText("");
     setLipVideoSrc(null);
     if (phaseRef.current === "call" && !document.hidden) startListening();
-  }, [startListening]);
+  }, [startListening, stopTypewriter]);
 
   const speakText = useCallback(async (text: string) => {
-    // 1. 백그라운드에서 생성된 추가질문 Wav2Lip 영상
+    setAiSpeakingText(text);
+    stopTypewriter();
+
+    // 1. 백그라운드에서 생성된 추가질문 Wav2Lip 영상 (타이프라이터는 onVideoMetadata 콜백에서 시작)
     const dynamicVideo = additionalVideosRef.current[text];
     if (dynamicVideo) {
       setAiSpeaking(true);
@@ -943,7 +1029,7 @@ export default function InterviewPage() {
       return;
     }
 
-    // 3. fallback: TTS API
+    // 2. fallback: TTS API
     try {
       setAiSpeaking(true);
       const res = await fetch(`${MEDIA_API}/api/tts/synthesize`, {
@@ -953,7 +1039,9 @@ export default function InterviewPage() {
       });
       const data = await res.json();
       if (!data.success) {
+        stopTypewriter();
         setAiSpeaking(false);
+        setAiSpeakingText("");
         if (phaseRef.current === "call" && !document.hidden) startListening();
         return;
       }
@@ -962,19 +1050,40 @@ export default function InterviewPage() {
         await (audio as any).setSinkId(callSelectedSpeakerIdRef.current).catch(() => {});
       }
       audioRef.current = audio;
+      // 메타데이터 로드 후 재생 시간 기반 타이프라이터 시작
+      const onMeta = () => {
+        if (isFinite(audio.duration) && audio.duration > 0) {
+          startTypewriter(text, audio.duration * 1000);
+        }
+      };
+      if (audio.readyState >= 1 && isFinite(audio.duration)) {
+        onMeta();
+      } else {
+        audio.addEventListener("loadedmetadata", onMeta, { once: true });
+      }
       audio.onended = () => {
         audioRef.current = null;
+        stopTypewriter();
         setAiSpeaking(false);
+        setAiSpeakingText("");
         setLipVideoSrc(null);
         if (phaseRef.current === "call" && !document.hidden) startListening();
       };
-      audio.onerror = () => { audioRef.current = null; setAiSpeaking(false); setLipVideoSrc(null); };
+      audio.onerror = () => {
+        audioRef.current = null;
+        stopTypewriter();
+        setAiSpeaking(false);
+        setAiSpeakingText("");
+        setLipVideoSrc(null);
+      };
       await audio.play();
     } catch {
+      stopTypewriter();
       setAiSpeaking(false);
+      setAiSpeakingText("");
       if (phaseRef.current === "call" && !document.hidden) startListening();
     }
-  }, [startListening]);
+  }, [startListening, startTypewriter, stopTypewriter]);
 
   useEffect(() => { speakTextRef.current = speakText; }, [speakText]);
 
@@ -1065,10 +1174,12 @@ export default function InterviewPage() {
   const fmtTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  // 답변 분석 중(sttLoading)에는 다음 질문 번호로 미리 표시
-  const displayQIdx = sttLoading && pendingAnswer !== null
-    ? Math.min(qIdx + 1, questionsRef.current.length)
-    : qIdx;
+  // 답변 분석 중(sttLoading)에는 다음 질문 번호로 미리 표시, 종료 시엔 전체 수 표시
+  const displayQIdx = phase === "done"
+    ? questionsRef.current.length
+    : sttLoading && pendingAnswer !== null
+      ? Math.min(qIdx + 2, questionsRef.current.length)
+      : qIdx + 1;
   const progress = Math.round((displayQIdx / questionsRef.current.length) * 100);
   const currentQ = questionsRef.current[Math.min(qIdx, questionsRef.current.length - 1)];
   const currentCategory = questionCategories[qIdx] ?? (qIdx === 0 ? "소개" : "면접");
@@ -1197,7 +1308,7 @@ export default function InterviewPage() {
             style={{ flex: layout === "split" ? (splitRatio === "7:3" ? 7 : splitRatio === "3:7" ? 3 : 1) : 1 }}
           >
             <div className="flex-1 flex items-center justify-center">
-              <AIAvatar speaking={aiSpeaking} lipVideoSrc={lipVideoSrc} onVideoEnded={handleAvatarVideoEnded} avatarSrc={avatarSrc} />
+              <AIAvatar speaking={aiSpeaking} lipVideoSrc={lipVideoSrc} onVideoEnded={handleAvatarVideoEnded} onVideoMetadata={(ms) => startTypewriter(aiSpeakingText, ms)} avatarSrc={avatarSrc} />
             </div>
 
 
@@ -1208,6 +1319,18 @@ export default function InterviewPage() {
                 <span className="text-[12px] text-[#374151] font-medium">AI 면접관</span>
               </div>
             </div>
+
+            {/* 자막 */}
+            {aiSpeaking && aiDisplayText && (
+              <div
+                className="absolute bottom-0 left-0 right-0 pt-12 pb-4 bg-gradient-to-t from-black/75 via-black/40 to-transparent pointer-events-none transition-all"
+                style={{ paddingLeft: "20px", paddingRight: layout === "pip" ? "200px" : "20px" }}
+              >
+                <p className="text-white text-[14px] font-semibold leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+                  {aiDisplayText}
+                </p>
+              </div>
+            )}
 
 
             {/* PiP: 내 화면 오른쪽 하단 */}
@@ -1686,6 +1809,13 @@ export default function InterviewPage() {
             </div>
           </div>
         </div>
+      )}
+      {showReportSurveyModal && (
+        <SurveyEmailModal
+          questions={messages.filter(m => m.role === "ai" && !m.text.includes("수고하셨습니다")).map(m => m.text)}
+          answers={messages.filter(m => m.role === "user").map(m => m.text)}
+          onClose={() => setShowReportSurveyModal(false)}
+        />
       )}
     </>
   );

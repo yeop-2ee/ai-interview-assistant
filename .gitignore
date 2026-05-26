@@ -1,9 +1,5 @@
 .DS_Store
 
-# 이미지/영상 파일
-frontend/public/avatar.jpeg
-frontend/public/avatar_videos/
-frontend/public/avatars/
 
 # 환경변수
 frontend/.env.local

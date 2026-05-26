@@ -29,6 +29,15 @@ model InterviewReport {
   createdAt    DateTime @default(now())
 }
 
+model SurveyResponse {
+  id          Int      @id @default(autoincrement())
+  purpose     String?
+  naturalness Int?
+  feedback    String?
+  email       String?
+  createdAt   DateTime @default(now())
+}
+
 model KnowledgeEntry {
   id             Int      @id @default(autoincrement())
   department     String

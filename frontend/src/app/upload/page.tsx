@@ -292,6 +292,10 @@ export default function UploadPage() {
   const lastSummaryRef = useRef<Summary | null>(null);
 
   useEffect(() => {
+    // 페이지 진입 시 이전 이력서 데이터 초기화
+    sessionStorage.removeItem("resumeText");
+    sessionStorage.removeItem("coverText");
+
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 3000);
     fetch(`${BACKEND_URL}/`, { signal: ctrl.signal })
@@ -420,6 +424,7 @@ export default function UploadPage() {
 
   const hasFile = resume.status === "ok" || cover.status === "ok";
   const canProceed = hasFile && !summaryLoading && !relevanceLoading && !relevanceMismatch;
+  const canProceedText = !summaryLoading;
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
@@ -509,10 +514,10 @@ export default function UploadPage() {
                 다음 <IconArrowRight />
               </button>
               <button
-                onClick={() => canProceed && router.push("/interview/text")}
-                disabled={!canProceed}
+                onClick={() => canProceedText && router.push("/interview/text")}
+                disabled={!canProceedText}
                 className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all border ${
-                  canProceed
+                  canProceedText
                     ? "border-[#4f52e8]/40 text-[#4f52e8] hover:bg-[#4f52e8]/5"
                     : "border-[#e4e7ef] text-[#9ca3af] cursor-not-allowed"
                 }`}

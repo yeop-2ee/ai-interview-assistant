@@ -236,89 +236,59 @@ function ReportContent() {
     if (!mainRef.current) return;
     setDownloading(true);
     try {
-      const domtoimage = (await import("dom-to-image-more")).default;
+      const html2canvas = (await import("html2canvas")).default;
       const { default: jsPDF } = await import("jspdf");
 
       const node = mainRef.current;
 
       // PDF에서 제외할 요소 숨김
       const hiddenEls = node.querySelectorAll<HTMLElement>(".pdf-hidden");
-      hiddenEls.forEach((el) => { el.style.display = "none"; });
+      hiddenEls.forEach((el) => { el.style.visibility = "hidden"; });
 
-      // oklch 등 최신 CSS 색상 함수 → getComputedStyle은 항상 rgb() 반환
-      // dom-to-image의 SVG foreignObject는 oklch 미지원이므로 캡처 전 인라인으로 교체
-      const COLOR_PROPS = [
-        "color", "background-color",
-        "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
-        "outline-color", "text-decoration-color", "box-shadow", "fill", "stroke",
-      ];
-      const allEls = [node, ...node.querySelectorAll<HTMLElement>("*")];
-      type Saved = { el: HTMLElement; prop: string; prev: string; prevPriority: string };
-      const saved: Saved[] = [];
-
-      allEls.forEach((el) => {
-        const cs = window.getComputedStyle(el);
-        COLOR_PROPS.forEach((prop) => {
-          const computed = cs.getPropertyValue(prop);
-          if (!computed) return;
-          saved.push({
-            el,
-            prop,
-            prev: el.style.getPropertyValue(prop),
-            prevPriority: el.style.getPropertyPriority(prop),
-          });
-          el.style.setProperty(prop, computed, "important");
-        });
-      });
-
-      const dataUrl = await domtoimage.toJpeg(node, {
-        quality: 0.95,
-        bgcolor: "#f8f9fc",
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#f8f9fc",
+        logging: false,
         width: node.scrollWidth,
         height: node.scrollHeight,
-      });
-
-      // 인라인 스타일 원복
-      saved.forEach(({ el, prop, prev, prevPriority }) => {
-        if (prev) el.style.setProperty(prop, prev, prevPriority);
-        else el.style.removeProperty(prop);
+        windowWidth: node.scrollWidth,
+        windowHeight: node.scrollHeight,
+        ignoreElements: (el) => el.classList.contains("pdf-hidden"),
       });
 
       // 숨긴 요소 복원
-      hiddenEls.forEach((el) => { el.style.display = ""; });
-
-      const img = new Image();
-      img.src = dataUrl;
-      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+      hiddenEls.forEach((el) => { el.style.visibility = ""; });
 
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       const pageW = pdf.internal.pageSize.getWidth();   // 210mm
       const pageH = pdf.internal.pageSize.getHeight();  // 297mm
 
-      // 이미지 1px당 mm
-      const mmPerPx = pageW / img.width;
+      // scale=2이므로 실제 px은 2배
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      const mmPerPx = pageW / imgW;
       const pxPerPage = Math.round(pageH / mmPerPx);
-      const pageCount = Math.ceil(img.height / pxPerPage);
+      const pageCount = Math.ceil(imgH / pxPerPage);
 
       for (let i = 0; i < pageCount; i++) {
         const srcY = i * pxPerPage;
-        const srcH = Math.min(pxPerPage, img.height - srcY);
-
-        // 마지막 슬라이스가 전체 페이지의 5% 미만이면 건너뜀
+        const srcH = Math.min(pxPerPage, imgH - srcY);
         if (srcH < pxPerPage * 0.05) break;
 
         if (i > 0) pdf.addPage();
 
-        const destH_mm = srcH * mmPerPx;
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = srcH;
-        const ctx = canvas.getContext("2d")!;
+        const slice = document.createElement("canvas");
+        slice.width = imgW;
+        slice.height = srcH;
+        const ctx = slice.getContext("2d")!;
         ctx.fillStyle = "#f8f9fc";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, srcY, img.width, srcH, 0, 0, img.width, srcH);
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas, 0, srcY, imgW, srcH, 0, 0, imgW, srcH);
 
-        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pageW, destH_mm);
+        const destH_mm = srcH * mmPerPx;
+        pdf.addImage(slice.toDataURL("image/png"), "PNG", 0, 0, pageW, destH_mm);
       }
 
       pdf.save(`면접_리포트_${new Date().toISOString().slice(0, 10)}.pdf`);

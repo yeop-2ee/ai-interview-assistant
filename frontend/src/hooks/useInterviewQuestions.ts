@@ -33,6 +33,7 @@ export function useInterviewQuestions() {
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [questionsProgress, setQuestionsProgress] = useState(0);
   const [questionsStep, setQuestionsStep] = useState("면접 질문 생성 중...");
+  const [questionError, setQuestionError] = useState(false);
   const [interviewStyle, setInterviewStyle] = useState("");
   const [avatarSrc, setAvatarSrc] = useState("/avatar.png");
 
@@ -100,9 +101,13 @@ export function useInterviewQuestions() {
             if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
               const merged = [INTERVIEW_INTRO_QUESTION, ...aiQuestions];
               setQuestions(merged);
-              questionsRef.current = merged; // 즉시 반영 (다음 렌더 전 콜백 참조 대비)
+              questionsRef.current = merged;
               const cats = Array.isArray(event.categories) ? event.categories as string[] : [];
               setQuestionCategories(["소개", ...cats]);
+              // 최소 질문 수 (자기소개 포함 6개) 미달 시 에러
+              if (merged.length < 6) setQuestionError(true);
+            } else {
+              setQuestionError(true);
             }
             setQuestionsProgress(100);
             setQuestionsStep("완료!");
@@ -118,6 +123,7 @@ export function useInterviewQuestions() {
           if (process.env.NODE_ENV === "development") {
             console.error("[질문 생성] 실패:", e);
           }
+          setQuestionError(true);
           setQuestionsProgress(100);
           setQuestionsStep("완료!");
           setTimeout(() => setQuestionsLoading(false), 400);
@@ -137,6 +143,7 @@ export function useInterviewQuestions() {
     questionsLoading,
     questionsProgress,
     questionsStep,
+    questionError,
     interviewStyle,
     avatarSrc,
     resolvedStyleRef,

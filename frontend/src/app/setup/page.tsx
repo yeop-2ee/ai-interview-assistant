@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { StepNavbar } from "@/components/Navbar";
@@ -124,6 +124,16 @@ export default function SetupPage() {
   const [jobRoleInput, setJobRoleInput] = useState("");
   const [companyType, setCompanyType] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
+  const [showErrorToast, setShowErrorToast] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("questionGenerationError") === "true") {
+      sessionStorage.removeItem("questionGenerationError");
+      setShowErrorToast(true);
+      const t = setTimeout(() => setShowErrorToast(false), 6000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const deptRoles = dept ? (DEPT_ROLES[dept] ?? []) : [];
 
@@ -132,6 +142,26 @@ export default function SetupPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
       <StepNavbar />
+
+      {/* 질문 생성 오류 토스트 */}
+      <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${showErrorToast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+        <div className="flex items-center gap-3 bg-white border border-red-200 rounded-2xl shadow-lg px-5 py-3.5 min-w-[320px]">
+          <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-[#0d1035]">질문 생성 중 오류가 발생했습니다</p>
+            <p className="text-[11.5px] text-[#6b7280] mt-0.5">설정을 확인하고 다시 시도해주세요.</p>
+          </div>
+          <button onClick={() => setShowErrorToast(false)} className="text-[#c4c9d6] hover:text-[#6b7280] transition-colors">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         <div className="mb-10">
