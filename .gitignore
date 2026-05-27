@@ -25,3 +25,12 @@ __pycache__/
 node_modules/
 frontend/.next/
 ai-pipeline/.env
+
+# Python 가상환경
+venv/
+.venv/
+
+# DB 파일
+*.db
+*.db-journal
+*.sqlite
