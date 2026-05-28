@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { IconX } from "@/components/Icons";
+import { authFetch } from "@/components/Navbar";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
@@ -116,7 +117,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!selectedDept) { setEntries([]); return; }
     setLoadingEntries(true);
-    fetch(`${BACKEND_URL}/knowledge?department=${encodeURIComponent(selectedDept)}`)
+    authFetch(`${BACKEND_URL}/knowledge?department=${encodeURIComponent(selectedDept)}`)
       .then((r) => r.json())
       .then((data) => setEntries(Array.isArray(data) ? data : []))
       .catch(() => setEntries([]))
@@ -126,7 +127,7 @@ export default function AdminPage() {
   const fetchSurveyStats = useCallback(async () => {
     setLoadingStats(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/surveys`);
+      const res = await authFetch(`${BACKEND_URL}/admin/surveys`);
       const data = await res.json();
       setSurveyStats(data);
     } catch { /* ignore */ }
@@ -140,7 +141,7 @@ export default function AdminPage() {
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/users`);
+      const res = await authFetch(`${BACKEND_URL}/admin/users`);
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch { /* ignore */ }
@@ -153,7 +154,7 @@ export default function AdminPage() {
 
   const handleRoleChange = async (id: number, newRole: string) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/users/${id}/role`, {
+      const res = await authFetch(`${BACKEND_URL}/admin/users/${id}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: newRole }),
@@ -166,7 +167,7 @@ export default function AdminPage() {
   const handleDeleteUser = async (id: number, name: string) => {
     if (!confirm(`"${name}" 계정을 삭제하시겠습니까?\n연관된 면접 리포트도 함께 삭제됩니다.`)) return;
     try {
-      await fetch(`${BACKEND_URL}/admin/users/${id}`, { method: "DELETE" });
+      await authFetch(`${BACKEND_URL}/admin/users/${id}`, { method: "DELETE" });
       setUsers(prev => prev.filter(u => u.id !== id));
     } catch { /* ignore */ }
   };
@@ -175,7 +176,7 @@ export default function AdminPage() {
     if (!selectedDept || !selectedSubject || !content.trim() || adding) return;
     setAdding(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/knowledge`, {
+      const res = await authFetch(`${BACKEND_URL}/knowledge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ department: selectedDept, subject: selectedSubject, content: content.trim(), registeredBy: adminName, email: adminEmail }),
@@ -189,7 +190,7 @@ export default function AdminPage() {
   };
 
   const handleRemove = async (id: number) => {
-    await fetch(`${BACKEND_URL}/knowledge/${id}`, {
+    await authFetch(`${BACKEND_URL}/knowledge/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: adminEmail }),

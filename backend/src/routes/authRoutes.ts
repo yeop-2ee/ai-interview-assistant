@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express"
 import bcrypt from "bcrypt"
+import { randomUUID } from "crypto"
 import prisma from "../lib/prisma"
 
 const router = Router()
@@ -61,7 +62,21 @@ router.post("/login", async (req: Request, res: Response) => {
     return
   }
 
-  res.json({ id: user.id, name: user.name, email: user.email, role: user.role })
+  // 새 세션 토큰 발급 — 기존 기기 세션 자동 만료 (7일 유효)
+  const sessionToken = randomUUID()
+  const sessionExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  await prisma.user.update({ where: { id: user.id }, data: { sessionToken, sessionExpiresAt } })
+
+  res.json({ id: user.id, name: user.name, email: user.email, role: user.role, sessionToken })
+})
+
+// POST /auth/logout
+router.post("/logout", async (req: Request, res: Response) => {
+  const token = req.headers["x-session-token"] as string | undefined
+  if (token) {
+    await prisma.user.updateMany({ where: { sessionToken: token }, data: { sessionToken: null } })
+  }
+  res.json({ success: true })
 })
 
 // DELETE /auth/user — 회원탈퇴 (연관 데이터 포함 삭제)

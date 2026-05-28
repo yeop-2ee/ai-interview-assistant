@@ -1,7 +1,10 @@
 import { Router, Request, Response } from "express"
 import prisma from "../lib/prisma"
+import { requireAuth } from "../middleware/auth"
 
 const router = Router()
+
+router.use(requireAuth)
 
 // POST /reports — 리포트 저장
 router.post("/", async (req: Request, res: Response) => {

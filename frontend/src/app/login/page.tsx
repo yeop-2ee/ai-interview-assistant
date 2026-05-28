@@ -41,6 +41,7 @@ export default function LoginPage() {
         localStorage.setItem("userRole", "admin");
         localStorage.setItem("userName", data.name);
         localStorage.setItem("userEmail", data.email);
+        localStorage.setItem("sessionToken", data.sessionToken);
         router.push("/admin");
       } else {
         const res = await fetch(`${BACKEND_URL}/auth/login`, {
@@ -54,6 +55,7 @@ export default function LoginPage() {
         localStorage.setItem("userRole", data.role ?? "user");
         localStorage.setItem("userName", data.name);
         localStorage.setItem("userEmail", data.email);
+        localStorage.setItem("sessionToken", data.sessionToken);
         router.push("/");
       }
     } catch {

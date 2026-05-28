@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { IconArrowRight, IconCheck } from "@/components/Icons";
+import { authFetch } from "@/components/Navbar";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
@@ -211,7 +212,7 @@ function ReportContent() {
     const settings = JSON.parse(sessionStorage.getItem("interviewSettings") || "{}");
     setSaving(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/reports`, {
+      const res = await authFetch(`${BACKEND_URL}/reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

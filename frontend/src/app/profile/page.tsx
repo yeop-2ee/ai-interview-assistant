@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Navbar } from "@/components/Navbar";
+import { Navbar, authFetch } from "@/components/Navbar";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
@@ -71,7 +71,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!userEmail) return;
-    fetch(`${BACKEND_URL}/reports?email=${encodeURIComponent(userEmail)}`)
+    authFetch(`${BACKEND_URL}/reports?email=${encodeURIComponent(userEmail)}`)
       .then((r) => r.json())
       .then((data) => setReports(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -103,7 +103,7 @@ export default function ProfilePage() {
   };
 
   const handleDeleteReport = async (id: number) => {
-    await fetch(`${BACKEND_URL}/reports/${id}`, {
+    await authFetch(`${BACKEND_URL}/reports/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: userEmail }),
@@ -113,7 +113,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
-    ["isLoggedIn", "userName", "userEmail", "userRole"].forEach((k) => localStorage.removeItem(k));
+    ["isLoggedIn", "userName", "userEmail", "userRole", "sessionToken"].forEach((k) => localStorage.removeItem(k));
     router.push("/");
   };
 

@@ -5,6 +5,35 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { IconLogOut, IconSettings } from "./Icons";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
+
+export function getSessionToken() {
+  return localStorage.getItem("sessionToken") ?? "";
+}
+
+export function clearSession() {
+  ["isLoggedIn", "userName", "userEmail", "userRole", "sessionToken"].forEach((k) =>
+    localStorage.removeItem(k)
+  );
+}
+
+/** 세션 만료(401) 시 자동 로그아웃 후 로그인 페이지로 이동 */
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = getSessionToken();
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers ?? {}),
+      "x-session-token": token,
+    },
+  });
+  if (res.status === 401) {
+    clearSession();
+    window.location.href = "/login";
+  }
+  return res;
+}
+
 const STEPS = [
   { href: "/setup", label: "면접 설정" },
   { href: "/upload", label: "자료 업로드" },
@@ -34,11 +63,15 @@ export function Navbar() {
     return () => window.removeEventListener("storage", sync);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userRole");
+  const handleLogout = async () => {
+    const token = getSessionToken();
+    if (token) {
+      fetch(`${BACKEND_URL}/auth/logout`, {
+        method: "POST",
+        headers: { "x-session-token": token },
+      }).catch(() => {});
+    }
+    clearSession();
     setUser(null);
     router.push("/");
   };
