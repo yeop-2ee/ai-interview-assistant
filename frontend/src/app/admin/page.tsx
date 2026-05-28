@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { IconX } from "@/components/Icons";
-import { authFetch } from "@/components/Navbar";
+import { authFetch } from "@/lib/auth";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 

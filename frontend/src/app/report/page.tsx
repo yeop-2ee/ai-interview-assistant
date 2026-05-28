@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { IconArrowRight, IconCheck } from "@/components/Icons";
-import { authFetch } from "@/components/Navbar";
+import { authFetch } from "@/lib/auth";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 

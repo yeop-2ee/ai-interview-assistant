@@ -25,11 +25,13 @@ router.post("/signup", async (req: Request, res: Response) => {
   }
 
   const hashed = await bcrypt.hash(password, 10)
+  const sessionToken = randomUUID()
+  const sessionExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   const user = await prisma.user.create({
-    data: { name, email, password: hashed },
+    data: { name, email, password: hashed, sessionToken, sessionExpiresAt },
   })
 
-  res.status(201).json({ id: user.id, name: user.name, email: user.email })
+  res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role, sessionToken })
 })
 
 // POST /auth/login

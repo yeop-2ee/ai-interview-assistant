@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Navbar, authFetch } from "@/components/Navbar";
+import { Navbar } from "@/components/Navbar";
+import { authFetch, clearSession } from "@/lib/auth";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
@@ -113,7 +114,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
-    ["isLoggedIn", "userName", "userEmail", "userRole", "sessionToken"].forEach((k) => localStorage.removeItem(k));
+    clearSession();
     router.push("/");
   };
 

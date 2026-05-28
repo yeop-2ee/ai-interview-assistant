@@ -48,9 +48,10 @@ export default function SignupPage() {
         return;
       }
       localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("userRole", "user");
+      localStorage.setItem("userRole", data.role ?? "user");
       localStorage.setItem("userName", data.name);
       localStorage.setItem("userEmail", data.email);
+      localStorage.setItem("sessionToken", data.sessionToken);
       router.push("/");
     } catch {
       setError("서버에 연결할 수 없습니다.");

@@ -104,6 +104,7 @@ AI 맞춤 질문 생성 (2-Pass SSE 스트리밍)
 | [Prisma](https://www.prisma.io) | 7.6.0 | ORM |
 | [PostgreSQL](https://www.postgresql.org) | - | 데이터베이스 |
 | [bcrypt](https://github.com/kelektiv/node.bcrypt.js) | 6.0.0 | 비밀번호 해싱 |
+| [nodemailer](https://nodemailer.com) | 8.0.8 | 면접 결과 이메일 발송 (Gmail SMTP) |
 | [pdf-parse](https://github.com/modesty/pdf2json) | 1.1.4 | PDF 텍스트 추출 |
 | [mammoth](https://github.com/mwilliamson/mammoth.js) | 1.12.0 | DOCX 텍스트 추출 |
 | [multer](https://github.com/expressjs/multer) | 2.1.1 | 파일 업로드 |
@@ -300,10 +301,16 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
 
 **backend/.env**
 ```env
+PORT=3001
 DATABASE_URL=postgresql://user:password@localhost:5432/ai_interview
-JWT_SECRET=your_jwt_secret
 AI_SERVER_URL=http://localhost:5050
 MEDIA_SERVER_URL=http://localhost:4000
+
+# 이메일 전송 (nodemailer + Gmail SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your@gmail.com
+SMTP_PASS=your_app_password
 ```
 
 **ai-pipeline/.env**
@@ -431,6 +438,13 @@ server {
 PORT=3001
 DATABASE_URL=postgresql://user:password@your-rds-endpoint:5432/ai_interview?sslmode=no-verify
 AI_SERVER_URL=http://localhost:5050
+MEDIA_SERVER_URL=http://localhost:4000
+
+# 이메일 전송 (nodemailer + Gmail SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your@gmail.com
+SMTP_PASS=your_app_password
 ```
 
 **frontend/.env.local**
@@ -520,7 +534,7 @@ nvidia-smi
 - Wav2Lip 립싱크 영상 실시간 생성
 - ffmpeg unsharp 필터로 화질 보정
 
-### AI 꼬리질문 생성
+### AI 꼬리질문 생성 (비활성화)
 
 - 답변이 충분히 완결되거나 깊이 있으면 꼬리질문 생성 안 함 (null)
 - 꼬리질문이 필요한 경우:
