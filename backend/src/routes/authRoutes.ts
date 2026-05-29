@@ -72,6 +72,29 @@ router.post("/login", async (req: Request, res: Response) => {
   res.json({ id: user.id, name: user.name, email: user.email, role: user.role, sessionToken })
 })
 
+// GET /auth/session — 세션 유효성 확인 (폴링용 경량 엔드포인트)
+router.get("/session", async (req: Request, res: Response) => {
+  const token = req.headers["x-session-token"] as string | undefined
+  if (!token) {
+    res.status(401).json({ error: "로그인이 필요합니다." })
+    return
+  }
+
+  const user = await prisma.user.findFirst({ where: { sessionToken: token } })
+  if (!user) {
+    res.status(401).json({ error: "세션이 만료되었습니다. 다시 로그인해주세요." })
+    return
+  }
+
+  if (user.sessionExpiresAt && user.sessionExpiresAt < new Date()) {
+    await prisma.user.update({ where: { id: user.id }, data: { sessionToken: null, sessionExpiresAt: null } })
+    res.status(401).json({ error: "세션이 만료되었습니다. 다시 로그인해주세요." })
+    return
+  }
+
+  res.json({ valid: true })
+})
+
 // POST /auth/logout
 router.post("/logout", async (req: Request, res: Response) => {
   const token = req.headers["x-session-token"] as string | undefined

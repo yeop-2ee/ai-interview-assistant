@@ -658,19 +658,15 @@ function ReadyScreen({
                   if (selectedSpeakerId) sessionStorage.setItem("selectedSpeakerId", selectedSpeakerId);
                   onStart();
                 }}
-                disabled={mediaServerOk !== true || questionsLoading || (!camReady && !micReady && mediaServerOk === null)}
+                disabled={questionsLoading}
                 className={`w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all text-[14px] ${
-                  mediaServerOk === true && !questionsLoading
+                  !questionsLoading
                     ? "bg-[#4f52e8] hover:bg-[#3e41d4] text-white shadow-md shadow-[#4f52e8]/20"
                     : "bg-[#e4e7ef] text-[#9ca3af] cursor-not-allowed"
                 }`}
               >
-                {mediaServerOk === false
-                  ? "서버와 연결할 수 없습니다"
-                  : questionsLoading
+                {questionsLoading
                   ? <span>AI 질문 생성 중...</span>
-                  : mediaServerOk === null
-                  ? "연결 확인 중..."
                   : micErr
                   ? <><span>텍스트 모드로 면접 입장하기</span><IconArrowRight /></>
                   : <><span>면접 입장하기</span><IconArrowRight /></>}
