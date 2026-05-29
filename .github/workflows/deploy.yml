@@ -18,7 +18,8 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd /home/ec2-user/app
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             # 프론트엔드 의존성 및 빌드
             cd /home/ec2-user/app/frontend
