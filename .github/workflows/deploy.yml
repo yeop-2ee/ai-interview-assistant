@@ -29,6 +29,7 @@ jobs:
             # 백엔드 의존성 및 DB 마이그레이션
             cd /home/ec2-user/app/backend
             npm install
+            npx prisma generate
             npx prisma migrate deploy
 
             # AI 파이프라인 의존성
