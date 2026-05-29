@@ -154,29 +154,61 @@ function ReadyScreen({
     if (previewVadRef.current) clearInterval(previewVadRef.current);
     previewAudioCtxRef.current?.close();
 
+    const videoConstraint = camId ? { deviceId: { exact: camId } } : true;
+    const audioConstraint = micId ? { deviceId: { exact: micId } } : true;
+
+    let stream: MediaStream | null = null;
+    let camOk = false;
+    let micOk = false;
+
+    // 1차: 카메라 + 마이크 동시 시도
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: camId ? { deviceId: { exact: camId } } : true,
-        audio: micId ? { deviceId: { exact: micId } } : true,
-      });
-      previewStreamRef.current = stream;
-      if (previewRef.current) previewRef.current.srcObject = stream;
-      setCamReady(true); setCamErr(false);
-      setMicReady(true); setMicErr(false);
+      stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioConstraint });
+      camOk = true; micOk = true;
+    } catch {
+      // 2차: 마이크만 시도
+      try {
+        const micStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: audioConstraint });
+        stream = micStream; micOk = true;
+      } catch { /* ignore */ }
 
-      // 장치 목록 (권한 후 label 포함)
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      setVideoDevices(devices.filter((d) => d.kind === "videoinput"));
-      setAudioDevices(devices.filter((d) => d.kind === "audioinput"));
-      setSpeakerDevices(devices.filter((d) => d.kind === "audiooutput"));
+      // 3차: 카메라만 시도
+      if (!camOk) {
+        try {
+          const camStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: false });
+          // 마이크 스트림이 있으면 트랙 합치기, 없으면 카메라 스트림만 사용
+          if (stream) {
+            camStream.getVideoTracks().forEach((t) => (stream as MediaStream).addTrack(t));
+          } else {
+            stream = camStream;
+          }
+          camOk = true;
+        } catch { /* ignore */ }
+      }
+    }
 
-      // 현재 사용 중인 장치 ID 반영
-      const vidTrack = stream.getVideoTracks()[0];
-      const audTrack = stream.getAudioTracks()[0];
-      if (vidTrack && !camId) setSelectedCamId(vidTrack.getSettings().deviceId ?? "");
-      if (audTrack && !micId) setSelectedMicId(audTrack.getSettings().deviceId ?? "");
+    setCamReady(camOk); setCamErr(!camOk);
+    setMicReady(micOk); setMicErr(!micOk);
 
-      // 마이크 레벨
+    if (!stream) return;
+
+    previewStreamRef.current = stream;
+    if (previewRef.current) previewRef.current.srcObject = stream;
+
+    // 장치 목록 (권한 후 label 포함)
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    setVideoDevices(devices.filter((d) => d.kind === "videoinput"));
+    setAudioDevices(devices.filter((d) => d.kind === "audioinput"));
+    setSpeakerDevices(devices.filter((d) => d.kind === "audiooutput"));
+
+    // 현재 사용 중인 장치 ID 반영
+    const vidTrack = stream.getVideoTracks()[0];
+    const audTrack = stream.getAudioTracks()[0];
+    if (vidTrack && !camId) setSelectedCamId(vidTrack.getSettings().deviceId ?? "");
+    if (audTrack && !micId) setSelectedMicId(audTrack.getSettings().deviceId ?? "");
+
+    // 마이크 레벨 (마이크 있을 때만)
+    if (micOk && stream.getAudioTracks().length > 0) {
       const audioCtx = new AudioContext();
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 512;
@@ -189,8 +221,6 @@ function ReadyScreen({
         setMicLevel(Math.min(avg / 40, 1));
         setSpeaking(avg > 10);
       }, 80);
-    } catch {
-      setCamErr(true); setMicErr(true);
     }
   };
 
@@ -582,7 +612,9 @@ function ReadyScreen({
             <div className="p-7">
               <h2 className="text-[20px] font-bold text-[#0d1035] mb-1 text-center">화상 면접 입장</h2>
               <p className="text-[13px] text-[#6b7280] mb-5 text-center leading-relaxed">
-                카메라와 마이크 권한이 필요합니다.<br />조용한 공간에서 시작해주세요.
+                {micErr
+                  ? <>마이크 권한이 없어 <strong>텍스트로 답변</strong>합니다.<br />조용한 공간에서 시작해주세요.</>
+                  : <>카메라·마이크 권한이 있으면 더 원활한 면접이 가능합니다.<br />조용한 공간에서 시작해주세요.</>}
               </p>
 
               <div className="bg-[#f8f9fc] rounded-xl border border-[#e4e7ef] px-4 py-3 mb-4 flex items-center justify-around">
@@ -626,21 +658,21 @@ function ReadyScreen({
                   if (selectedSpeakerId) sessionStorage.setItem("selectedSpeakerId", selectedSpeakerId);
                   onStart();
                 }}
-                disabled={!camReady || !micReady || mediaServerOk !== true || questionsLoading}
+                disabled={mediaServerOk !== true || questionsLoading || (!camReady && !micReady && mediaServerOk === null)}
                 className={`w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all text-[14px] ${
-                  camReady && micReady && mediaServerOk === true && !questionsLoading
+                  mediaServerOk === true && !questionsLoading
                     ? "bg-[#4f52e8] hover:bg-[#3e41d4] text-white shadow-md shadow-[#4f52e8]/20"
                     : "bg-[#e4e7ef] text-[#9ca3af] cursor-not-allowed"
                 }`}
               >
-                {camErr || micErr
-                  ? "카메라·마이크 권한이 필요합니다"
-                  : mediaServerOk === false
+                {mediaServerOk === false
                   ? "서버와 연결할 수 없습니다"
                   : questionsLoading
                   ? <span>AI 질문 생성 중...</span>
-                  : !camReady || !micReady || mediaServerOk === null
+                  : mediaServerOk === null
                   ? "연결 확인 중..."
+                  : micErr
+                  ? <><span>텍스트 모드로 면접 입장하기</span><IconArrowRight /></>
                   : <><span>면접 입장하기</span><IconArrowRight /></>}
               </button>
             </div>
@@ -670,6 +702,7 @@ export default function InterviewPage() {
   const typewriterTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [camError, setCamError] = useState(false);
+  const [micAvailable, setMicAvailable] = useState(true);
   const [layout, setLayout] = useState<"split" | "pip" | "full">("pip");
   const [splitRatio, setSplitRatio] = useState<"5:5" | "7:3" | "3:7">("5:5");
   // 추가질문 Wav2Lip 영상 백그라운드 생성 결과 (질문 텍스트 → 영상 URL)
@@ -848,7 +881,14 @@ export default function InterviewPage() {
   const startListening = useCallback(() => {
     if (phaseRef.current !== "call") return;
     const stream = streamRef.current;
-    if (!stream) return;
+
+    // 마이크 트랙이 없으면 바로 텍스트 입력 모드로 전환
+    const hasMic = (stream?.getAudioTracks().length ?? 0) > 0;
+    if (!hasMic || !stream) {
+      setPendingAnswer("");
+      setPendingAnswerEdited("");
+      return;
+    }
 
     const maxTime = 90;
 
@@ -1154,8 +1194,11 @@ export default function InterviewPage() {
   }, [layout]);
 
   const startCall = async () => {
-    const ok = await startCam();
-    if (!ok) { setCamError(true); return; }
+    await startCam();
+    const hasCam = (streamRef.current?.getVideoTracks().length ?? 0) > 0;
+    const hasMic = (streamRef.current?.getAudioTracks().length ?? 0) > 0;
+    if (!hasCam) setCamError(true);
+    setMicAvailable(hasMic);
     setPhase("call");
 
     console.log("[면접시작] 전체 질문:", questionsRef.current);
@@ -1479,20 +1522,20 @@ export default function InterviewPage() {
             <div className="flex items-start gap-3 w-full">
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[12px] font-semibold text-[#374151]">답변 확인</span>
-                  <span className="text-[11px] text-[#9ca3af]">내용을 수정하거나 그대로 진행하세요</span>
+                  <span className="text-[12px] font-semibold text-[#374151]">{micAvailable ? "답변 확인" : "텍스트 답변"}</span>
+                  <span className="text-[11px] text-[#9ca3af]">{micAvailable ? "내용을 수정하거나 그대로 진행하세요" : "답변을 입력하고 다음 질문으로 진행하세요"}</span>
 
                 </div>
                 <textarea
                   value={pendingAnswerEdited}
                   onChange={(e) => setPendingAnswerEdited(e.target.value)}
                   rows={3}
-                  placeholder="인식된 답변이 없습니다. 직접 입력하거나 재답변하세요."
+                  placeholder={micAvailable ? "인식된 답변이 없습니다. 직접 입력하거나 재답변하세요." : "답변을 직접 입력하세요."}
                   className="w-full text-[12px] text-[#374151] bg-[#f8f9fc] border border-[#e4e7ef] rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-[#4f52e8] leading-relaxed"
                 />
               </div>
               <div className="flex flex-col gap-2 flex-shrink-0 pt-5">
-                {/* 재답변 */}
+                {/* 재답변 / 다시 입력 */}
                 <button
                   onClick={() => {
                     setPendingAnswer(null);
@@ -1501,8 +1544,20 @@ export default function InterviewPage() {
                   }}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#f0f2f8] hover:bg-[#e4e7ef] text-[#374151] text-[12px] font-semibold transition-all border border-[#e4e7ef]"
                 >
-                  <IconMic className="w-3.5 h-3.5" />
-                  재답변
+                  {micAvailable ? (
+                    <>
+                      <IconMic className="w-3.5 h-3.5" />
+                      재답변
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                      다시 입력
+                    </>
+                  )}
                 </button>
                 {/* 다음 질문 */}
                 <button

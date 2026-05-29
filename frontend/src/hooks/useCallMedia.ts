@@ -38,13 +38,31 @@ export function useCallMedia(
   }, [callSelectedSpeakerId, applySpeaker]);
 
   const startCam = useCallback(async (): Promise<boolean> => {
+    const camId = sessionStorage.getItem("selectedCamId");
+    const micId = sessionStorage.getItem("selectedMicId");
+    const videoConstraint = camId ? { deviceId: { exact: camId } } : true;
+    const audioConstraint = micId ? { deviceId: { exact: micId } } : true;
+
+    let stream: MediaStream | null = null;
+
+    // 1차: 카메라 + 마이크 동시 시도
     try {
-      const camId = sessionStorage.getItem("selectedCamId");
-      const micId = sessionStorage.getItem("selectedMicId");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: camId ? { deviceId: { exact: camId } } : true,
-        audio: micId ? { deviceId: { exact: micId } } : true,
-      });
+      stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioConstraint });
+    } catch {
+      // 2차: 마이크만 시도 (카메라 없이)
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: audioConstraint });
+      } catch {
+        // 3차: 카메라만 시도 (마이크 없이)
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: false });
+        } catch {
+          // 모든 미디어 장치 없음 — 텍스트 모드로 진행
+        }
+      }
+    }
+
+    if (stream) {
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -55,12 +73,13 @@ export function useCallMedia(
       const at = stream.getAudioTracks()[0];
       if (vt) setCallSelectedCamId(vt.getSettings().deviceId ?? (camId ?? ""));
       if (at) setCallSelectedMicId(at.getSettings().deviceId ?? (micId ?? ""));
-      const speakerId = sessionStorage.getItem("selectedSpeakerId");
-      if (speakerId) setCallSelectedSpeakerId(speakerId);
-      return true;
-    } catch {
-      return false;
     }
+
+    const speakerId = sessionStorage.getItem("selectedSpeakerId");
+    if (speakerId) setCallSelectedSpeakerId(speakerId);
+
+    // 항상 true 반환 — 카메라/마이크 가용 여부는 streamRef에서 트랙 확인
+    return true;
   }, [videoRef]);
 
   const switchCallDevices = useCallback(async (camId?: string, micId?: string) => {
