@@ -24,6 +24,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   })
 
   if (res.status === 401) {
+    sessionStorage.setItem("sessionExpired", "true")
     clearSession()
     window.location.href = "/login"
   }

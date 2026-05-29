@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { IconUser, IconLock, IconEye, IconEyeOff, IconArrowRight } from "@/components/Icons";
 
 type Mode = "user" | "admin";
@@ -17,6 +17,16 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showSessionToast, setShowSessionToast] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("sessionExpired") === "true") {
+      sessionStorage.removeItem("sessionExpired");
+      setShowSessionToast(true);
+      const t = setTimeout(() => setShowSessionToast(false), 6000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +77,26 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
+      {/* 세션 만료 토스트 */}
+      <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${showSessionToast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+        <div className="flex items-center gap-3 bg-white border border-amber-200 rounded-2xl shadow-lg px-5 py-3.5 min-w-[340px]">
+          <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-[#0d1035]">세션이 만료되었습니다</p>
+            <p className="text-[11.5px] text-[#6b7280] mt-0.5">다른 기기에서 로그인하여 세션이 만료되었습니다. 다시 로그인해주세요.</p>
+          </div>
+          <button onClick={() => setShowSessionToast(false)} className="text-[#c4c9d6] hover:text-[#6b7280] transition-colors flex-shrink-0">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
       {/* ─── Left panel ─── */}
       <div className="hidden lg:flex lg:w-[480px] xl:w-[520px] flex-col justify-between bg-[#0d1035] p-12 relative overflow-hidden flex-shrink-0">
         {/* Decorative glow */}
