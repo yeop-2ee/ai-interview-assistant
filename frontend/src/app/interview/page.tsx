@@ -242,7 +242,7 @@ function ReadyScreen({
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] flex flex-col">
-      <header className="bg-white border-b border-[#e4e7ef] px-6 h-[60px] flex items-center justify-between">
+      <header className="bg-white border-b border-[#e4e7ef] px-4 sm:px-6 h-[60px] flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <span className="font-semibold text-[14px] text-[#0d1035]">AI기반 맞춤 면접 도우미</span>
         </Link>
@@ -254,15 +254,15 @@ function ReadyScreen({
         </Link>
       </header>
 
-      <div className="flex-1 flex items-center justify-center bg-[#f8f9fc] p-6">
+      <div className="flex-1 overflow-y-auto bg-[#f8f9fc] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-6">
         <div className="w-full max-w-3xl">
           <div className="bg-white rounded-2xl border border-[#e4e7ef] shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-hidden">
 
             {/* 카메라 + 레이아웃 설정 */}
-            <div className="flex gap-4 border-b border-[#e4e7ef] p-5">
+            <div className="flex flex-col sm:flex-row gap-4 border-b border-[#e4e7ef] p-4 sm:p-5">
               {/* 카메라 미리보기 */}
               <div
-                className={`relative w-[55%] aspect-video bg-[#1a1c2e] flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 ${
+                className={`relative w-full sm:w-[55%] aspect-video bg-[#1a1c2e] flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 ${
                   speaking ? "ring-2 ring-green-400 ring-offset-2 ring-offset-white" : ""
                 }`}
               >
@@ -323,9 +323,9 @@ function ReadyScreen({
               </div>
 
               {/* 레이아웃 설정 (세로) */}
-              <div className="flex-1 bg-[#f8f9fc] p-4 flex flex-col justify-center gap-3">
+              <div className="flex-1 bg-[#f8f9fc] p-3 sm:p-4 flex flex-col justify-center gap-3">
                 <p className="text-[11px] text-[#9ca3af] font-medium">화면 레이아웃</p>
-                <div className="flex flex-col gap-2">
+                <div className="flex sm:flex-col gap-2">
                   {([
                     {
                       value: "split", title: "화면 분할",
@@ -394,7 +394,7 @@ function ReadyScreen({
                     <div key={opt.value} className="relative group">
                       <button
                         onClick={() => setLayout(opt.value)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-[12px] font-medium transition-all ${
+                        className={`flex-1 sm:flex-none w-full flex items-center justify-center sm:justify-start gap-2.5 px-2.5 sm:px-3 py-2 rounded-lg border text-[12px] font-medium transition-all ${
                           layout === opt.value
                             ? "border-[#4f52e8] bg-[#eef0fd] text-[#4f52e8]"
                             : "border-[#e4e7ef] bg-white text-[#6b7280] hover:border-[#a5a7f3]"
@@ -406,7 +406,7 @@ function ReadyScreen({
                         {opt.title}
                       </button>
                       {/* 호버 미리보기 */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 z-50 hidden group-hover:block pointer-events-none">
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 z-50 hidden sm:group-hover:block pointer-events-none">
                         <div className="bg-white rounded-xl border border-[#e4e7ef] shadow-lg p-2 w-40">
                           <div className="w-full aspect-video rounded-lg overflow-hidden">
                             {opt.preview}
@@ -418,7 +418,7 @@ function ReadyScreen({
                   ))}
                 </div>
                 {layout === "split" && (
-                  <div className="flex gap-1.5">
+                  <div className="hidden sm:flex gap-1.5">
                     {(["7:3", "5:5", "3:7"] as const).map((r) => (
                       <button
                         key={r}
@@ -609,8 +609,8 @@ function ReadyScreen({
             </div>
 
             {/* 카드 내용 */}
-            <div className="p-7">
-              <h2 className="text-[20px] font-bold text-[#0d1035] mb-1 text-center">화상 면접 입장</h2>
+            <div className="p-4 sm:p-7">
+              <h2 className="text-[18px] sm:text-[20px] font-bold text-[#0d1035] mb-1 text-center">화상 면접 입장</h2>
               <p className="text-[13px] text-[#6b7280] mb-5 text-center leading-relaxed">
                 {micErr
                   ? <>마이크 권한이 없어 <strong>텍스트로 답변</strong>합니다.<br />조용한 공간에서 시작해주세요.</>
@@ -623,7 +623,7 @@ function ReadyScreen({
                   { label: "예상 소요 시간", value: questionsLoading || questionCount === 0 ? "-" : `약 ${questionCount * 4}~${questionCount * 5}분` },
                   { label: "면접관 스타일", value: interviewStyle || "부드러운" },
                 ].map((s, i, arr) => (
-                  <div key={s.label} className={`flex flex-col items-center gap-0.5 text-center ${i < arr.length - 1 ? "border-r border-[#e4e7ef] pr-6 mr-6" : ""}`}>
+                  <div key={s.label} className={`flex flex-col items-center gap-0.5 text-center ${i < arr.length - 1 ? "border-r border-[#e4e7ef] pr-3 mr-3 sm:pr-5 sm:mr-5" : ""}`}>
                     <span className="text-[11px] text-[#9ca3af]">{s.label}</span>
                     <span className="text-[13px] font-semibold text-[#374151]">{s.value}</span>
                   </div>
@@ -1273,7 +1273,7 @@ export default function InterviewPage() {
         )}
 
         {/* ── 상단 바 ── */}
-        <div className="flex-shrink-0 bg-white border-b border-[#e4e7ef] flex items-center justify-between px-5 py-3 shadow-sm">
+        <div className="flex-shrink-0 bg-white border-b border-[#e4e7ef] flex items-center justify-between px-3 sm:px-5 py-3 shadow-sm">
           <div className="flex items-center gap-3">
             {/* 로고 */}
             <Link href="/" className="flex items-center gap-2 mr-2">
@@ -1339,7 +1339,7 @@ export default function InterviewPage() {
         </div>
 
         {/* ── 메인 영역 ── */}
-        <div className="flex-1 flex gap-3 p-3 min-h-0 overflow-hidden">
+        <div className={`flex-1 flex gap-2 sm:gap-3 p-2 sm:p-3 min-h-0 overflow-hidden${layout === "split" ? " flex-col sm:flex-row" : ""}`}>
 
           {/* 면접관 타일 */}
           <div
@@ -1363,7 +1363,7 @@ export default function InterviewPage() {
             {aiSpeaking && aiDisplayText && (
               <div
                 className="absolute bottom-0 left-0 right-0 pt-12 pb-4 bg-gradient-to-t from-black/75 via-black/40 to-transparent pointer-events-none transition-all"
-                style={{ paddingLeft: "20px", paddingRight: layout === "pip" ? "200px" : "20px" }}
+                style={{ paddingLeft: "20px", paddingRight: layout === "pip" ? "120px" : "20px" }}
               >
                 <p className="text-white text-[14px] font-semibold leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
                   {aiDisplayText}
@@ -1374,7 +1374,7 @@ export default function InterviewPage() {
 
             {/* PiP: 내 화면 오른쪽 하단 */}
             {layout === "pip" && (
-              <div className="absolute bottom-4 right-4 w-44 aspect-video rounded-xl overflow-hidden border-2 border-white shadow-lg">
+              <div className="absolute bottom-3 right-3 w-24 sm:w-36 aspect-video rounded-xl overflow-hidden border-2 border-white shadow-lg">
                 <video ref={pipVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
                 {camError && (
                   <div className="absolute inset-0 bg-[#e8eaf0] flex items-center justify-center">
@@ -1472,7 +1472,7 @@ export default function InterviewPage() {
         )}
 
         {/* ── 컨트롤 바 ── */}
-        <div className="flex-shrink-0 bg-white border-t border-[#e4e7ef] px-5 py-3 shadow-[0_-1px_8px_rgba(0,0,0,0.04)]">
+        <div className="flex-shrink-0 bg-white border-t border-[#e4e7ef] px-3 sm:px-5 py-2.5 sm:py-3 shadow-[0_-1px_8px_rgba(0,0,0,0.04)]">
           {phase === "done" ? (
             <div className="flex flex-col items-center gap-2.5 py-1 w-full max-w-lg mx-auto">
               {reportLoading ? (
@@ -1480,7 +1480,7 @@ export default function InterviewPage() {
                   <div className="flex items-center justify-between w-full">
                     <span className="text-[12px] text-[#6b7280]">{reportStep}</span>
                     <div className="flex items-center gap-2.5">
-                      <span className="text-[11px] text-[#9ca3af]">약 3~5분 소요 예상</span>
+                      <span className="hidden sm:inline text-[11px] text-[#9ca3af]">약 3~5분 소요 예상</span>
                       <span className="text-[12px] font-semibold text-[#4f52e8]">{reportProgress}%</span>
                     </div>
                   </div>
@@ -1515,7 +1515,7 @@ export default function InterviewPage() {
             </div>
           ) : pendingAnswer !== null ? (
             /* 답변 검토 패널 */
-            <div className="flex items-start gap-3 w-full">
+            <div className="flex flex-col sm:flex-row items-start gap-3 w-full">
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[12px] font-semibold text-[#374151]">{micAvailable ? "답변 확인" : "텍스트 답변"}</span>
@@ -1530,7 +1530,7 @@ export default function InterviewPage() {
                   className="w-full text-[12px] text-[#374151] bg-[#f8f9fc] border border-[#e4e7ef] rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-[#4f52e8] leading-relaxed"
                 />
               </div>
-              <div className="flex flex-col gap-2 flex-shrink-0 pt-5">
+              <div className="flex sm:flex-col flex-row gap-2 flex-shrink-0 sm:pt-5">
                 {/* 재답변 / 다시 입력 */}
                 <button
                   onClick={() => {
@@ -1538,7 +1538,7 @@ export default function InterviewPage() {
                     setPendingAnswerEdited("");
                     startListening();
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#f0f2f8] hover:bg-[#e4e7ef] text-[#374151] text-[12px] font-semibold transition-all border border-[#e4e7ef]"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#f0f2f8] hover:bg-[#e4e7ef] text-[#374151] text-[12px] font-semibold transition-all border border-[#e4e7ef]"
                 >
                   {micAvailable ? (
                     <>
@@ -1640,7 +1640,7 @@ export default function InterviewPage() {
                     setPendingAnswerEdited("");
                   }}
                   disabled={sttLoading}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#4f52e8] hover:bg-[#3e41d4] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[12px] font-semibold transition-all shadow-sm"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#4f52e8] hover:bg-[#3e41d4] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[12px] font-semibold transition-all shadow-sm"
                 >
                   다음 질문
                   <IconArrowRight />
@@ -1672,7 +1672,7 @@ export default function InterviewPage() {
                         </span>
                       </span>
                       {/* 진행 바 */}
-                      <div className="w-24 h-1.5 bg-[#e4e7ef] rounded-full overflow-hidden">
+                      <div className="hidden sm:block w-24 h-1.5 bg-[#e4e7ef] rounded-full overflow-hidden">
                         <div className={`h-full rounded-full transition-all duration-1000 ${isUrgent ? "bg-red-400" : "bg-[#4f52e8]"}`}
                           style={{ width: `${Math.min((answerElapsed / maxTime) * 100, 100)}%` }} />
                       </div>
