@@ -108,10 +108,10 @@ const interviewerStyles = [
 
 function SectionTitle({ num, title, hint }: { num: string; title: string; hint?: string }) {
   return (
-    <div className="flex items-center gap-3 mb-5">
+    <div className="flex items-center gap-2.5 mb-3 sm:mb-5 flex-wrap">
       <span className="text-[11px] font-bold text-[#4f52e8] bg-[#eef0fd] px-2 py-0.5 rounded-md">{num}</span>
-      <h2 className="font-semibold text-[16px] text-[#0d1035]">{title}</h2>
-      {hint && <span className="text-[12px] text-[#9ca3af]">{hint}</span>}
+      <h2 className="font-semibold text-[15px] sm:text-[16px] text-[#0d1035]">{title}</h2>
+      {hint && <span className="text-[11px] sm:text-[12px] text-[#9ca3af]">{hint}</span>}
     </div>
   );
 }
@@ -171,9 +171,9 @@ export default function SetupPage() {
 
         <div className="space-y-6">
           {/* Department */}
-          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-4 sm:p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
             <SectionTitle num="01" title="학과 선택" />
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {departments.map((d) => (
                 <button
                   key={d.name}
@@ -183,7 +183,7 @@ export default function SetupPage() {
                     if (dept === d.name) { setDept(""); setJobRole(""); setJobRoleInput(""); }
                     else { setDept(d.name); setJobRole(""); setJobRoleInput(""); }
                   }}
-                  className={`relative px-4 py-2 rounded-lg border text-[13px] font-medium transition-all ${
+                  className={`relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border text-[12px] sm:text-[13px] font-medium transition-all ${
                     d.enabled
                       ? dept === d.name
                         ? "border-[#4f52e8] bg-[#eef0fd] text-[#4f52e8]"
@@ -206,7 +206,7 @@ export default function SetupPage() {
           </div>
 
           {/* Job Role */}
-          <div className={`bg-white rounded-2xl border p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)] transition-all ${
+          <div className={`bg-white rounded-2xl border p-4 sm:p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)] transition-all ${
             dept ? "border-[#e4e7ef]" : "border-[#e4e7ef] opacity-50 pointer-events-none"
           }`}>
             <SectionTitle num="02" title="희망 직무" />
@@ -214,7 +214,7 @@ export default function SetupPage() {
               <p className="text-[13px] text-[#c4c9d6]">먼저 학과를 선택해주세요.</p>
             ) : (
               <>
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                   {deptRoles.map((role) => (
                     <button
                       key={role}
@@ -222,7 +222,7 @@ export default function SetupPage() {
                         if (jobRole === role) { setJobRole(""); setJobRoleInput(""); }
                         else { setJobRole(role); setJobRoleInput(role); }
                       }}
-                      className={`px-3 py-1.5 rounded-lg border text-[13px] font-medium transition-all ${
+                      className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border text-[12px] sm:text-[13px] font-medium transition-all ${
                         jobRole === role
                           ? "border-[#4f52e8] bg-[#eef0fd] text-[#4f52e8]"
                           : "border-[#e4e7ef] bg-white text-[#374151] hover:border-[#a5a7f3] hover:bg-[#f8f9fc]"
@@ -262,87 +262,89 @@ export default function SetupPage() {
           </div>
 
           {/* Company Type */}
-          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-4 sm:p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
             <SectionTitle num="03" title="회사 유형" />
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
               {companyTypes.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setCompanyType(companyType === c.id ? "" : c.id)}
-                  className={`text-left p-4 rounded-xl border transition-all ${
+                  className={`text-left p-3 sm:p-4 rounded-xl border transition-all ${
                     companyType === c.id
                       ? "border-[#4f52e8] bg-[#eef0fd]"
                       : "border-[#e4e7ef] bg-[#f8f9fc] hover:border-[#a5a7f3]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`text-[14px] font-semibold ${companyType === c.id ? "text-[#4f52e8]" : "text-[#0d1035]"}`}>{c.label}</span>
+                  <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5 sm:mb-1">
+                    <span className={`text-[13px] sm:text-[14px] font-semibold leading-tight ${companyType === c.id ? "text-[#4f52e8]" : "text-[#0d1035]"}`}>{c.label}</span>
                     {companyType === c.id && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#4f52e8] bg-white rounded-md px-1.5 py-0.5 border border-[#c7d2fe]">
+                      <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#4f52e8] bg-white rounded-md px-1.5 py-0.5 border border-[#c7d2fe] flex-shrink-0">
                         <IconCheck className="w-2.5 h-2.5" /> 선택됨
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-[#9ca3af] leading-tight">{c.desc}</div>
+                  <div className="hidden sm:block text-[11px] text-[#9ca3af] leading-tight">{c.desc}</div>
+                  {companyType === c.id && (
+                    <div className="sm:hidden mt-1 w-full h-0.5 rounded-full bg-[#4f52e8]/30" />
+                  )}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Experience Level */}
-          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-4 sm:p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
             <SectionTitle num="04" title="경력" />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {experienceLevels.map((e) => (
                 <button
                   key={e.id}
                   onClick={() => setExperienceLevel(experienceLevel === e.id ? "" : e.id)}
-                  className={`text-left p-4 rounded-xl border transition-all ${
+                  className={`text-left p-3 sm:p-4 rounded-xl border transition-all ${
                     experienceLevel === e.id
                       ? "border-[#4f52e8] bg-[#eef0fd]"
                       : "border-[#e4e7ef] bg-[#f8f9fc] hover:border-[#a5a7f3]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span className={`text-[14px] font-semibold ${experienceLevel === e.id ? "text-[#4f52e8]" : "text-[#0d1035]"}`}>{e.label}</span>
-                    {experienceLevel === e.id && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#4f52e8] bg-white rounded-md px-1.5 py-0.5 border border-[#c7d2fe]">
-                        <IconCheck className="w-2.5 h-2.5" /> 선택됨
-                      </span>
-                    )}
+                  <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                    <span className={`text-[13px] sm:text-[14px] font-semibold ${experienceLevel === e.id ? "text-[#4f52e8]" : "text-[#0d1035]"}`}>{e.label}</span>
+                    <span className={`text-[11px] font-medium ${experienceLevel === e.id ? "text-[#818cf8]" : "text-[#c4c9d6]"}`}>{e.sub}</span>
                   </div>
-                  <div className={`text-[11px] font-medium mb-1 ${experienceLevel === e.id ? "text-[#818cf8]" : "text-[#c4c9d6]"}`}>
-                    {e.sub}
-                  </div>
-                  <div className="text-[11px] text-[#9ca3af] leading-tight">{e.desc}</div>
+                  <div className="hidden sm:block text-[11px] text-[#9ca3af] leading-tight mt-1">{e.desc}</div>
+                  {experienceLevel === e.id && (
+                    <div className="sm:hidden mt-1.5 w-full h-0.5 rounded-full bg-[#4f52e8]/30" />
+                  )}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Style */}
-          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-            <SectionTitle num="05" title="면접관 스타일" hint="선택하지 않으면 랜덤으로 설정됩니다" />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-4 sm:p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+            <SectionTitle num="05" title="면접관 스타일" hint="선택하지 않으면 랜덤 설정" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {interviewerStyles.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setStyle(style === s.id ? "" : s.id)}
-                  className={`text-left p-4 rounded-xl border transition-all ${
+                  className={`text-left p-3 sm:p-4 rounded-xl border transition-all ${
                     style === s.id
                       ? "border-[#4f52e8] bg-[#eef0fd]"
                       : "border-[#e4e7ef] bg-[#f8f9fc] hover:border-[#a5a7f3]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`text-[14px] font-semibold ${style === s.id ? "text-[#4f52e8]" : "text-[#0d1035]"}`}>{s.label}</span>
+                  <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5 sm:mb-1">
+                    <span className={`text-[13px] sm:text-[14px] font-semibold ${style === s.id ? "text-[#4f52e8]" : "text-[#0d1035]"}`}>{s.label}</span>
                     {style === s.id && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#4f52e8] bg-white rounded-md px-1.5 py-0.5 border border-[#c7d2fe]">
+                      <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#4f52e8] bg-white rounded-md px-1.5 py-0.5 border border-[#c7d2fe] flex-shrink-0">
                         <IconCheck className="w-2.5 h-2.5" /> 선택됨
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-[#9ca3af] leading-tight">{s.desc}</div>
+                  <div className="hidden sm:block text-[11px] text-[#9ca3af] leading-tight">{s.desc}</div>
+                  {style === s.id && (
+                    <div className="sm:hidden mt-1 w-full h-0.5 rounded-full bg-[#4f52e8]/30" />
+                  )}
                 </button>
               ))}
             </div>

@@ -60,7 +60,7 @@ function DropZone({ label, state, onChange, onRemove }: {
 
   return (
     <div
-      className={`rounded-2xl border-2 border-dashed transition-all cursor-pointer p-6 ${borderClass}`}
+      className={`rounded-2xl border-2 border-dashed transition-all cursor-pointer p-4 sm:p-6 ${borderClass}`}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onChange(f); }}
@@ -131,23 +131,23 @@ function SummaryCard({ summary, loading, progress, relevanceLoading, relevanceMi
     const stepLabel = progress < 40 ? "내용 분석 중..." : progress < 80 ? "핵심 정보 추출 중..." : "마무리 중...";
 
     return (
-      <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6 mb-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+      <div className="bg-white rounded-2xl border border-[#e4e7ef] p-4 sm:p-6 mb-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-[#eef0fd] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-[#eef0fd] flex items-center justify-center flex-shrink-0">
             <svg className="animate-spin w-4 h-4 text-[#4f52e8]" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
           </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-0.5">
-              <div className="text-[14px] font-semibold text-[#0d1035]">AI 분석 중</div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-[#9ca3af]">약 1~2분 소요 예상</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-0.5 gap-2">
+              <div className="text-[13px] sm:text-[14px] font-semibold text-[#0d1035]">AI 분석 중</div>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                <span className="hidden sm:inline text-[11px] text-[#9ca3af]">약 1~2분 소요 예상</span>
                 <span className="text-[13px] font-semibold text-[#4f52e8]">{progress}%</span>
               </div>
             </div>
-            <div className="text-[12px] text-[#9ca3af]">{stepLabel}</div>
+            <div className="text-[11px] sm:text-[12px] text-[#9ca3af]">{stepLabel}</div>
           </div>
         </div>
         <div className="w-full h-1.5 bg-[#e4e7ef] rounded-full overflow-hidden mb-4">
@@ -170,14 +170,14 @@ function SummaryCard({ summary, loading, progress, relevanceLoading, relevanceMi
   return (
     <div className="bg-white rounded-2xl border border-[#e4e7ef] shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden mb-6">
       {/* 헤더 */}
-      <div className="bg-gradient-to-r from-[#4f52e8] to-[#7c7ff5] px-6 py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-white/70 text-[11px] font-medium uppercase tracking-wider mb-1">AI 분석 결과</div>
-            <div className="text-white text-[18px] font-bold">{summary.name}</div>
-            <div className="text-white/80 text-[13px] mt-1">{summary.oneLiner ?? summary.oneLine}</div>
+      <div className="bg-gradient-to-r from-[#4f52e8] to-[#7c7ff5] px-4 sm:px-6 py-4 sm:py-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-white/70 text-[10px] sm:text-[11px] font-medium uppercase tracking-wider mb-1">AI 분석 결과</div>
+            <div className="text-white text-[16px] sm:text-[18px] font-bold leading-snug">{summary.name}</div>
+            <div className="text-white/80 text-[12px] sm:text-[13px] mt-1 leading-relaxed">{summary.oneLiner ?? summary.oneLine}</div>
           </div>
-          <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+          <div className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/20 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
             </svg>
@@ -187,7 +187,7 @@ function SummaryCard({ summary, loading, progress, relevanceLoading, relevanceMi
 
       {/* 관련성 검사 중 */}
       {relevanceLoading && (
-        <div className="mx-6 mt-5 flex items-center gap-2.5 bg-[#f8f9fc] border border-[#e4e7ef] rounded-xl px-4 py-3">
+        <div className="mx-4 sm:mx-6 mt-4 sm:mt-5 flex items-center gap-2.5 bg-[#f8f9fc] border border-[#e4e7ef] rounded-xl px-4 py-3">
           <svg className="animate-spin w-4 h-4 text-[#4f52e8] flex-shrink-0" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -198,7 +198,7 @@ function SummaryCard({ summary, loading, progress, relevanceLoading, relevanceMi
 
       {/* 관련성 경고 */}
       {!relevanceLoading && relevanceMismatch && relevanceReason && (
-        <div className="mx-6 mt-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <div className="mx-4 sm:mx-6 mt-4 sm:mt-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
           <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
@@ -206,7 +206,7 @@ function SummaryCard({ summary, loading, progress, relevanceLoading, relevanceMi
         </div>
       )}
 
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
         {/* 기술 스택 */}
         {summary.skills?.length > 0 && (
           <div>
