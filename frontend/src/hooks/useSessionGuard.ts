@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { getSessionToken } from "@/lib/auth"
+import { getSessionToken, clearSession } from "@/lib/auth"
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!
 const RECONNECT_DELAY_MS = 5_000
@@ -30,8 +30,9 @@ export function useSessionGuard() {
           signal: abortRef.current.signal,
         })
 
-        // 토큰이 이미 서버에서 무효 상태 → 즉시 만료 처리
+        // 토큰이 이미 서버에서 무효 상태 → 토큰 삭제 후 만료 처리
         if (res.status === 401) {
+          clearSession()
           window.dispatchEvent(new Event("session-expired"))
           return
         }

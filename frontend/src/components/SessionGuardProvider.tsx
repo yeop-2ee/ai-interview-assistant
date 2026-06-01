@@ -9,6 +9,8 @@ export function SessionGuardProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const handler = () => {
+      // 이미 로그인 페이지면 무시 (무한 리다이렉트 방지)
+      if (window.location.pathname === "/login") return
       setExpired(true)
       // 3초 후 로그인 페이지로 이동
       setTimeout(() => {
