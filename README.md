@@ -10,7 +10,7 @@
 
 > 실제 구현 화면과 동일한 UI로 제작된 인터랙티브 플로우맵입니다. 아래 링크를 클릭하면 브라우저에서 바로 확인할 수 있습니다.
 
-**[► 화면 Flow Map 보기](https://raw.githack.com/yeop-2ee/ai-interview-assistant/main/flowmap.html)**
+**[► 화면 Flow Map 보기](https://yeop-2ee.github.io/ai-interview-assistant/flowmap.html)**
 
 | 플로우 | 포함 화면 |
 |--------|-----------|
