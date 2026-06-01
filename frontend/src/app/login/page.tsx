@@ -5,13 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { IconUser, IconLock, IconEye, IconEyeOff, IconArrowRight } from "@/components/Icons";
 
-type Mode = "user" | "admin";
-
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -39,37 +36,23 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      if (mode === "admin") {
-        const res = await fetch(`${BACKEND_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, mode: "admin" }),
-        });
-        const data = await res.json();
-        if (!res.ok) { setError(data.error || "로그인에 실패했습니다."); return; }
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userRole", "admin");
-        localStorage.setItem("userName", data.name);
-        localStorage.setItem("userEmail", data.email);
-        localStorage.setItem("sessionToken", data.sessionToken);
-        window.dispatchEvent(new Event("session-started"));
-        router.push("/admin");
-      } else {
-        const res = await fetch(`${BACKEND_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, mode: "user" }),
-        });
-        const data = await res.json();
-        if (!res.ok) { setError(data.error || "로그인에 실패했습니다."); return; }
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userRole", data.role ?? "user");
-        localStorage.setItem("userName", data.name);
-        localStorage.setItem("userEmail", data.email);
-        localStorage.setItem("sessionToken", data.sessionToken);
-        window.dispatchEvent(new Event("session-started"));
-        router.push("/");
-      }
+      const res = await fetch(`${BACKEND_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "로그인에 실패했습니다."); return; }
+
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("userRole", data.role ?? "user");
+      localStorage.setItem("userName", data.name);
+      localStorage.setItem("userEmail", data.email);
+      localStorage.setItem("sessionToken", data.sessionToken);
+      window.dispatchEvent(new Event("session-started"));
+
+      // role 기반 리다이렉트
+      router.push(data.role === "admin" ? "/admin" : "/");
     } catch {
       setError("서버에 연결할 수 없습니다.");
     } finally {
@@ -101,16 +84,13 @@ export default function LoginPage() {
 
       {/* ─── Left panel ─── */}
       <div className="hidden lg:flex lg:w-[480px] xl:w-[520px] flex-col justify-between bg-[#0d1035] p-12 relative overflow-hidden flex-shrink-0">
-        {/* Decorative glow */}
         <div className="absolute top-[-100px] right-[-100px] w-[400px] h-[400px] bg-[#4f52e8] rounded-full blur-[160px] opacity-20 pointer-events-none" />
         <div className="absolute bottom-[-60px] left-[-60px] w-[280px] h-[280px] bg-[#67e8f9] rounded-full blur-[120px] opacity-10 pointer-events-none" />
 
-        {/* Logo */}
         <div className="flex items-center gap-2.5 relative z-10">
-<span className="text-white font-semibold text-[16px] tracking-tight">AI기반 맞춤 면접 도우미</span>
+          <span className="text-white font-semibold text-[16px] tracking-tight">AI기반 맞춤 면접 도우미</span>
         </div>
 
-        {/* Body */}
         <div className="relative z-10">
           <h2 className="text-[36px] font-bold text-white leading-tight mb-4">
             다시 만나서<br />반갑습니다
@@ -132,7 +112,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Quote */}
         <div className="relative z-10 border-t border-white/[0.08] pt-8">
           <p className="text-white/40 text-[13px] leading-relaxed italic">
             &ldquo;3번 연습하고 실제 면접에서 꼬리질문에 당황하지 않을 수 있었어요.&rdquo;
@@ -144,9 +123,8 @@ export default function LoginPage() {
       {/* ─── Right panel (form) ─── */}
       <div className="flex-1 flex items-center justify-center p-8 bg-[#f8f9fc]">
         <div className="w-full max-w-[400px]">
-          {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-<span className="font-semibold text-[#0d1035]">AI기반 맞춤 면접 도우미</span>
+            <span className="font-semibold text-[#0d1035]">AI기반 맞춤 면접 도우미</span>
           </div>
 
           <h1 className="text-[26px] font-bold text-[#0d1035] mb-1">로그인</h1>
@@ -156,23 +134,6 @@ export default function LoginPage() {
               회원가입
             </Link>
           </p>
-
-          {/* Mode toggle */}
-          <div className="flex bg-[#eef0fd] p-1 rounded-xl mb-7">
-            {(["user", "admin"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(""); }}
-                className={`flex-1 py-2 text-[13px] font-semibold rounded-lg transition-all ${
-                  mode === m
-                    ? "bg-white text-[#0d1035] shadow-sm"
-                    : "text-[#6b7280] hover:text-[#374151]"
-                }`}
-              >
-                {m === "user" ? "일반 로그인" : "관리자 로그인"}
-              </button>
-            ))}
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
@@ -253,9 +214,7 @@ export default function LoginPage() {
                   확인 중...
                 </>
               ) : (
-                <>
-                  {mode === "admin" ? "관리자로 로그인" : "로그인"} <IconArrowRight />
-                </>
+                <>로그인 <IconArrowRight /></>
               )}
             </button>
           </form>

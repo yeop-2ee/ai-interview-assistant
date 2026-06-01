@@ -39,7 +39,7 @@ router.post("/signup", async (req: Request, res: Response) => {
 
 // POST /auth/login
 router.post("/login", async (req: Request, res: Response) => {
-  const { email, password, mode } = req.body  // mode: "user" | "admin"
+  const { email, password } = req.body
 
   if (!email || !password) {
     res.status(400).json({ error: "이메일과 비밀번호를 입력해주세요." })
@@ -55,15 +55,6 @@ router.post("/login", async (req: Request, res: Response) => {
   const match = await bcrypt.compare(password, user.password)
   if (!match) {
     res.status(401).json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." })
-    return
-  }
-
-  if (mode === "admin" && user.role !== "admin") {
-    res.status(403).json({ error: "관리자 계정이 아닙니다." })
-    return
-  }
-  if (mode === "user" && user.role === "admin") {
-    res.status(403).json({ error: "관리자 계정은 관리자 로그인을 이용해주세요." })
     return
   }
 
