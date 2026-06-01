@@ -8,20 +8,24 @@ const RECONNECT_DELAY_MS = 5_000
  * 서버와 SSE 연결을 유지하며 세션 무효화 이벤트를 수신하는 훅.
  * 다른 기기에서 새로 로그인하면 서버가 즉시 "session-invalidated" 이벤트를 push한다.
  * 네트워크 오류 시 5초 후 자동 재연결한다.
+ * 로그인 성공 시 "session-started" 이벤트를 받아 SSE 연결을 새로 수립한다.
  */
 export function useSessionGuard() {
   const abortRef = useRef<AbortController | null>(null)
+  const stoppedRef = useRef(false)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    let stopped = false
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    stoppedRef.current = false
 
     const connect = async () => {
       const token = getSessionToken()
       if (!token) return
 
+      // 기존 연결 중단 후 새로 수립
+      abortRef.current?.abort()
       abortRef.current = new AbortController()
 
       try {
@@ -69,17 +73,26 @@ export function useSessionGuard() {
         // 네트워크 오류 → 재연결 대기
       }
 
-      if (!stopped) {
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS)
+      if (!stoppedRef.current) {
+        reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS)
       }
     }
+
+    // 로그인 성공 시 SSE 재연결
+    const onSessionStarted = () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      connect()
+    }
+
+    window.addEventListener("session-started", onSessionStarted)
 
     connect()
 
     return () => {
-      stopped = true
+      stoppedRef.current = true
       abortRef.current?.abort()
-      if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      window.removeEventListener("session-started", onSessionStarted)
     }
   }, [])
 }

@@ -52,6 +52,7 @@ export default function LoginPage() {
         localStorage.setItem("userName", data.name);
         localStorage.setItem("userEmail", data.email);
         localStorage.setItem("sessionToken", data.sessionToken);
+        window.dispatchEvent(new Event("session-started"));
         router.push("/admin");
       } else {
         const res = await fetch(`${BACKEND_URL}/auth/login`, {
@@ -66,6 +67,7 @@ export default function LoginPage() {
         localStorage.setItem("userName", data.name);
         localStorage.setItem("userEmail", data.email);
         localStorage.setItem("sessionToken", data.sessionToken);
+        window.dispatchEvent(new Event("session-started"));
         router.push("/");
       }
     } catch {
