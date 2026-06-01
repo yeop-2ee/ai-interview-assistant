@@ -163,9 +163,9 @@ export default function SetupPage() {
         </div>
       </div>
 
-      <main className="max-w-3xl mx-auto px-6 py-10">
-        <div className="mb-10">
-          <h1 className="text-[28px] font-bold text-[#0d1035] mb-2">면접 설정</h1>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="mb-7 sm:mb-10">
+          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#0d1035] mb-2">면접 설정</h1>
           <p className="text-[14px] text-[#6b7280]">학과와 면접관 스타일을 고르면 AI가 맞춤 질문을 준비합니다.</p>
         </div>
 
@@ -350,17 +350,17 @@ export default function SetupPage() {
         </div>
 
         {/* Bottom nav */}
-        <div className="mt-8 flex items-center justify-between">
-          <Link href="/" className="text-[13px] text-[#9ca3af] hover:text-[#374151] transition-colors flex items-center gap-1.5">
+        <div className="mt-8 flex items-center justify-between gap-3">
+          <Link href="/" className="text-[13px] text-[#9ca3af] hover:text-[#374151] transition-colors flex items-center gap-1.5 flex-shrink-0">
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
             홈으로
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 flex-wrap justify-end">
             {!canProceed && (
-              <span className="text-[12px] text-[#9ca3af]">모든 항목을 선택해주세요</span>
+              <span className="text-[12px] text-[#9ca3af] hidden sm:inline">모든 항목을 선택해주세요</span>
             )}
             <button
               onClick={() => {

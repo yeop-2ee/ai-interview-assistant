@@ -315,50 +315,50 @@ function ReportContent() {
     <div className="min-h-screen bg-[#f8f9fc]">
       {/* Header */}
       <header className="bg-white border-b border-[#e4e7ef] sticky top-0 z-50 print:hidden">
-        <div className="max-w-5xl mx-auto px-6 h-[60px] flex items-center justify-between">
-          <Link href="/" className="font-semibold text-[14px] tracking-tight text-[#0d1035]">AI기반 맞춤 면접 도우미</Link>
-          <div className="flex items-center gap-2">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-[60px] flex items-center justify-between gap-2">
+          <Link href="/" className="font-semibold text-[14px] tracking-tight text-[#0d1035] flex-shrink-0">AI기반 맞춤 면접 도우미</Link>
+          <div className="flex items-center gap-1 sm:gap-2">
             {fromProfile ? (
               <button onClick={() => router.push("/profile")}
-                className="text-[13px] border border-[#e4e7ef] text-[#374151] hover:border-[#a5a7f3] px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
-                ← 뒤로 가기
+                className="text-[12px] sm:text-[13px] border border-[#e4e7ef] text-[#374151] hover:border-[#a5a7f3] px-2.5 sm:px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                ← 뒤로
               </button>
             ) : (
               <button onClick={handleSave} disabled={saving || saved}
-                className={`text-[13px] border px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${saved ? "border-emerald-300 text-emerald-600 bg-emerald-50" : "text-[#374151] border-[#e4e7ef] hover:border-[#a5a7f3]"}`}>
-                {saving ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>저장 중</> : saved ? <><IconCheck className="w-3.5 h-3.5" />저장됨</> : "리포트 저장"}
+                className={`text-[12px] sm:text-[13px] border px-2.5 sm:px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${saved ? "border-emerald-300 text-emerald-600 bg-emerald-50" : "text-[#374151] border-[#e4e7ef] hover:border-[#a5a7f3]"}`}>
+                {saving ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="hidden sm:inline">저장 중</span></> : saved ? <><IconCheck className="w-3.5 h-3.5" /><span className="hidden sm:inline">저장됨</span></> : <><span className="hidden sm:inline">리포트 </span>저장</>}
               </button>
             )}
             <button onClick={handleDownload} disabled={downloading}
-              className="text-[13px] border border-[#e4e7ef] text-[#374151] hover:border-[#a5a7f3] disabled:opacity-50 px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+              className="text-[12px] sm:text-[13px] border border-[#e4e7ef] text-[#374151] hover:border-[#a5a7f3] disabled:opacity-50 px-2.5 sm:px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
               {downloading
-                ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>변환 중...</>
-                : <><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF 다운로드</>
+                ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="hidden sm:inline">변환 중...</span></>
+                : <><svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span className="hidden sm:inline">PDF 다운로드</span></>
               }
             </button>
             <button onClick={() => router.push("/setup")}
-              className="text-[13px] font-medium bg-[#4f52e8] hover:bg-[#3e41d4] text-white px-4 py-1.5 rounded-lg flex items-center gap-1.5">
-              다시 연습 <IconArrowRight className="w-3.5 h-3.5" />
+              className="text-[12px] sm:text-[13px] font-medium bg-[#4f52e8] hover:bg-[#3e41d4] text-white px-2.5 sm:px-4 py-1.5 rounded-lg flex items-center gap-1.5 flex-shrink-0">
+              <span className="hidden sm:inline">다시 연습</span><span className="sm:hidden">재시작</span> <IconArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       </header>
 
-      <main ref={mainRef} className="max-w-5xl mx-auto px-6 py-10 space-y-6">
+      <main ref={mainRef} className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6">
         {/* 타이틀 + 종합 점수 */}
-        <div className="flex items-start justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div>
-            <h1 className="text-[26px] font-bold text-[#0d1035] mb-1">면접 결과 리포트</h1>
-            <p className="text-[13px] text-[#9ca3af]">{subtitle}</p>
+            <h1 className="text-[22px] sm:text-[26px] font-bold text-[#0d1035] mb-1">면접 결과 리포트</h1>
+            <p className="text-[12px] sm:text-[13px] text-[#9ca3af]">{subtitle}</p>
           </div>
-          <div ref={overallRef} className="flex-shrink-0 bg-white rounded-2xl border border-[#e4e7ef] px-6 py-4 text-center shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+          <div ref={overallRef} className="flex-shrink-0 bg-white rounded-2xl border border-[#e4e7ef] px-6 py-4 text-center shadow-[0_1px_4px_rgba(0,0,0,0.06)] self-start sm:self-auto">
             <div className="text-[44px] font-black leading-none mb-1" style={{ color: overallColor }}>{animatedOverall}</div>
             <div className="text-[11px] text-[#9ca3af] uppercase tracking-wide font-medium">종합 점수</div>
           </div>
         </div>
 
         {/* 5개 점수 카드 */}
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
           {SCORE_ITEMS.map((s, i) => (
             <div key={s.key} className="bg-white rounded-2xl border border-[#e4e7ef] p-4 flex flex-col items-center text-center shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
               <RadialScore score={report.scores[s.key] ?? 0} color={s.color} delay={i * 150} />
@@ -368,7 +368,7 @@ function ReportContent() {
         </div>
 
         {/* 강점 / 약점 */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div className="bg-white rounded-2xl border border-[#e4e7ef] p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -417,7 +417,7 @@ function ReportContent() {
             </div>
             <span className="font-semibold text-[15px] text-[#0d1035]">적합도 평가</span>
           </div>
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             {([
               { key: "job",     label: "직무 적합도", color: "#4f52e8" },
               { key: "org",     label: "조직 적합도", color: "#059669" },
@@ -464,7 +464,7 @@ function ReportContent() {
               const fb = report.questionFeedback[i] ?? null;
               const isCommon = i < 5;
               return (
-                <div key={i} className="px-6 py-6">
+                <div key={i} className="px-4 sm:px-6 py-5 sm:py-6">
                   {/* 질문 */}
                   <div className="flex items-start gap-3 mb-4">
                     <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
@@ -477,7 +477,7 @@ function ReportContent() {
                   </div>
 
                   {/* 답변 */}
-                  <blockquote className="ml-8 mb-4 pl-3 border-l-2 border-[#e4e7ef] text-[13px] italic text-[#6b7280] leading-relaxed">
+                  <blockquote className="ml-4 sm:ml-8 mb-4 pl-3 border-l-2 border-[#e4e7ef] text-[13px] italic text-[#6b7280] leading-relaxed">
                     {report.answers[i]
                       ? `"${report.answers[i]}"`
                       : <span className="text-[#c4c9d6]">답변이 기록되지 않았습니다.</span>}
@@ -485,7 +485,7 @@ function ReportContent() {
 
                   {/* 점수 바 + 답변 길이 */}
                   {fb && (
-                    <div className="ml-8 grid grid-cols-2 gap-4 mb-4">
+                    <div className="ml-4 sm:ml-8 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
                       <div>
                         <div className="flex justify-between text-[11px] mb-1.5">
                           <span className="text-[#9ca3af]">답변 적절성</span>
@@ -505,12 +505,12 @@ function ReportContent() {
 
                   {/* 종합 피드백 */}
                   {fb?.comment && (
-                    <p className="ml-8 text-[13px] text-[#374151] leading-relaxed mb-4">{fb.comment}</p>
+                    <p className="ml-4 sm:ml-8 text-[13px] text-[#374151] leading-relaxed mb-4">{fb.comment}</p>
                   )}
 
                   {/* 개선 답변 */}
                   {fb?.improvedAnswer && (
-                    <div className="ml-8 bg-[#eef0fd] border border-[#c7d2fe] rounded-xl p-4 mb-3">
+                    <div className="ml-4 sm:ml-8 bg-[#eef0fd] border border-[#c7d2fe] rounded-xl p-4 mb-3">
                       <div className="flex items-center gap-1.5 mb-2">
                         <svg className="w-3.5 h-3.5 text-[#4f52e8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
@@ -523,7 +523,7 @@ function ReportContent() {
 
                   {/* 꼬리 질문 */}
                   {fb?.followUpQuestions?.length > 0 && (
-                    <div className="ml-8">
+                    <div className="ml-4 sm:ml-8">
                       <span className="text-[11px] text-[#9ca3af] font-medium block mb-2">나올 수 있는 꼬리 질문</span>
                       <div className="flex flex-wrap gap-2">
                         {fb.followUpQuestions.filter(Boolean).map((fq, j) => (

@@ -149,7 +149,7 @@ export default function ProfilePage() {
     <div className="min-h-screen flex flex-col bg-[#f8f9fc]">
       <Navbar />
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-10 space-y-6">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6">
 
         {/* 프로필 헤더 */}
         <div className="bg-white rounded-2xl border border-[#e4e7ef] shadow-[0_1px_4px_rgba(0,0,0,0.04)] px-7 py-6">
@@ -260,7 +260,7 @@ export default function ProfilePage() {
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteReport(r.id); }}
-                        className="w-7 h-7 rounded-lg text-[#e4e7ef] hover:text-rose-400 hover:bg-rose-50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                        className="w-7 h-7 rounded-lg text-[#d1d5db] hover:text-rose-400 hover:bg-rose-50 flex items-center justify-center transition-all sm:opacity-0 sm:group-hover:opacity-100"
                       >
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>
@@ -280,7 +280,7 @@ export default function ProfilePage() {
                       {/* 영역별 점수 */}
                       <div>
                         <p className="text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wider mb-3">영역별 점수</p>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-2">
                           {[
                             { key: "content", label: "답변 내용" },
                             { key: "logic", label: "논리 구조" },
@@ -301,7 +301,7 @@ export default function ProfilePage() {
 
                       {/* 강점 / 약점 */}
                       {r.fullReport && (r.fullReport.strengths?.length > 0 || r.fullReport.weaknesses?.length > 0) && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="bg-white rounded-xl border border-[#e4e7ef] p-4">
                             <p className="text-[11px] font-semibold text-emerald-600 mb-2">나의 강점</p>
                             <div className="space-y-1.5">
@@ -346,7 +346,7 @@ export default function ProfilePage() {
                       {r.fullReport?.fitScores && (
                         <div className="bg-white rounded-xl border border-[#e4e7ef] p-4">
                           <p className="text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wider mb-3">적합도 평가</p>
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                             {([
                               { key: "job", label: "직무 적합도", color: "#4f52e8" },
                               { key: "org", label: "조직 적합도", color: "#059669" },

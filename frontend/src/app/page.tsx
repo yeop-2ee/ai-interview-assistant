@@ -63,13 +63,13 @@ export default function Home() {
           {/* Glow */}
           <div className="absolute top-[-80px] left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#4f52e8] rounded-full blur-[120px] opacity-20 pointer-events-none" />
 
-          <div className="relative max-w-5xl mx-auto px-6 pt-28 pb-32 text-center">
-            <div className="inline-flex items-center gap-2 bg-white/[0.08] border border-white/[0.12] text-white/80 text-[12px] font-medium px-3.5 py-1.5 rounded-full mb-8 tracking-wide">
+          <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 pb-24 sm:pt-28 sm:pb-32 text-center">
+            <div className="inline-flex items-center gap-2 bg-white/[0.08] border border-white/[0.12] text-white/80 text-[12px] font-medium px-3.5 py-1.5 rounded-full mb-6 sm:mb-8 tracking-wide">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               지금 바로 무료로 시작할 수 있습니다
             </div>
 
-            <h1 className="text-[52px] sm:text-[64px] font-bold leading-[1.12] tracking-tight mb-6">
+            <h1 className="text-[36px] sm:text-[52px] lg:text-[64px] font-bold leading-[1.12] tracking-tight mb-5 sm:mb-6">
               <TypewriterText
                 text="면접 준비,"
                 speed={70}
@@ -83,7 +83,7 @@ export default function Home() {
               />
             </h1>
 
-            <p className="text-[17px] text-white/60 max-w-xl mx-auto mb-10 leading-relaxed">
+            <p className="text-[15px] sm:text-[17px] text-white/60 max-w-xl mx-auto mb-8 sm:mb-10 leading-relaxed px-2 sm:px-0">
               이력서를 올리면 AI가 맞춤 질문을 만들고, 실시간 음성으로 실전 면접을 진행합니다.
               끝나면 상세한 피드백 리포트까지.
             </p>
@@ -93,7 +93,7 @@ export default function Home() {
             </div>
 
             {/* Stats */}
-            <div className="mt-16 pt-10 border-t border-white/[0.08] grid grid-cols-3 gap-8 max-w-sm mx-auto">
+            <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-white/[0.08] grid grid-cols-3 gap-4 sm:gap-8 max-w-sm mx-auto">
               {[
                 { num: "", label: "면접 진행 횟수" },
                 { num: "", label: "사용자 만족도" },
@@ -109,7 +109,7 @@ export default function Home() {
         </section>
 
         {/* ─── Features ─── */}
-        <section id="features" className="py-24 px-6 bg-[#f8f9fc]">
+        <section id="features" className="py-16 sm:py-24 px-4 sm:px-6 bg-[#f8f9fc]">
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <ScrollReveal>
@@ -142,7 +142,7 @@ export default function Home() {
         </section>
 
         {/* ─── How it works ─── */}
-        <section id="how" className="py-24 px-6 bg-white">
+        <section id="how" className="py-16 sm:py-24 px-4 sm:px-6 bg-white">
           <div className="max-w-4xl mx-auto">
             <ScrollReveal className="text-center mb-16">
               <p className="text-[12px] font-semibold text-[#4f52e8] uppercase tracking-widest mb-3">이용 방법</p>
@@ -173,8 +173,8 @@ export default function Home() {
         </section>
 
         {/* ─── Plan / CTA ─── */}
-        <section className="py-24 px-6 bg-[#f8f9fc]">
-          <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <section className="py-16 sm:py-24 px-4 sm:px-6 bg-[#f8f9fc]">
+          <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 sm:gap-12 items-center">
             <ScrollReveal>
               <p className="text-[12px] font-semibold text-[#4f52e8] uppercase tracking-widest mb-4">완전 무료</p>
               <h2 className="text-[36px] font-bold text-[#0d1035] leading-tight mb-5">

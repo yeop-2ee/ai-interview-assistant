@@ -429,9 +429,9 @@ export default function UploadPage() {
     <div className="min-h-screen bg-[#f8f9fc]">
       <StepNavbar />
 
-      <main className="max-w-3xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-[28px] font-bold text-[#0d1035] mb-2">자료 업로드</h1>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#0d1035] mb-2">자료 업로드</h1>
           <p className="text-[14px] text-[#6b7280] leading-relaxed">
             이력서나 자소서를 업로드하면 텍스트를 추출해 AI 면접 질문 생성에 활용합니다.
             파일은 텍스트 추출 즉시 삭제되며 서버에 저장되지 않습니다.
@@ -476,14 +476,14 @@ export default function UploadPage() {
         {/* 건너뛰기 */}
         {!hasFile && (
           <div className="bg-white rounded-2xl border border-[#e4e7ef] p-5 mb-8 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <div className="text-[14px] font-medium text-[#374151] mb-0.5">자료 없이 진행하기</div>
                 <div className="text-[12px] text-[#9ca3af]">학과·면접 유형에 맞는 기본 질문으로 시작합니다.</div>
               </div>
               <button
                 onClick={() => router.push("/interview")}
-                className="flex-shrink-0 text-[13px] font-medium text-[#4f52e8] hover:bg-[#eef0fd] px-4 py-2 rounded-lg transition-colors border border-[#c7d2fe]"
+                className="flex-shrink-0 self-start sm:self-auto text-[13px] font-medium text-[#4f52e8] hover:bg-[#eef0fd] px-4 py-2 rounded-lg transition-colors border border-[#c7d2fe]"
               >
                 건너뛰기
               </button>
