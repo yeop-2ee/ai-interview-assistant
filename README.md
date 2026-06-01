@@ -399,6 +399,16 @@ server {
     listen 80;
     server_name _;
 
+    # SSE: 세션 만료 즉시 push (버퍼링 비활성화 필수)
+    location /api/auth/events {
+        proxy_pass http://localhost:3001/auth/events;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+        proxy_cache off;
+    }
     location /api/ {
         proxy_pass http://localhost:3001/;
         proxy_set_header Host $host;

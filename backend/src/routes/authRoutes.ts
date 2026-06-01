@@ -99,6 +99,7 @@ router.get("/events", async (req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/event-stream")
   res.setHeader("Cache-Control", "no-cache")
   res.setHeader("Connection", "keep-alive")
+  res.setHeader("X-Accel-Buffering", "no") // nginx 버퍼링 비활성화
   res.flushHeaders()
 
   // 기존 연결이 있으면 교체 (같은 기기에서 재연결 등)
