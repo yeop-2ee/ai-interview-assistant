@@ -5,6 +5,9 @@ import prisma from "../lib/prisma"
 
 const router = Router()
 
+// 유저별 SSE 연결 저장소 (userId → Response)
+const activeConnections = new Map<number, Response>()
+
 // POST /auth/signup
 router.post("/signup", async (req: Request, res: Response) => {
   const { name, email, password } = req.body
@@ -69,7 +72,50 @@ router.post("/login", async (req: Request, res: Response) => {
   const sessionExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   await prisma.user.update({ where: { id: user.id }, data: { sessionToken, sessionExpiresAt } })
 
+  // 기존 기기에 SSE로 세션 무효화 이벤트 즉시 전송
+  const oldConnection = activeConnections.get(user.id)
+  if (oldConnection) {
+    oldConnection.write(`data: ${JSON.stringify({ type: "session-invalidated" })}\n\n`)
+    activeConnections.delete(user.id)
+  }
+
   res.json({ id: user.id, name: user.name, email: user.email, role: user.role, sessionToken })
+})
+
+// GET /auth/events — SSE 연결 유지, 다른 기기 로그인 시 세션 무효화 이벤트 push
+router.get("/events", async (req: Request, res: Response) => {
+  const token = req.headers["x-session-token"] as string | undefined
+  if (!token) {
+    res.status(401).end()
+    return
+  }
+
+  const user = await prisma.user.findFirst({ where: { sessionToken: token } })
+  if (!user || (user.sessionExpiresAt && user.sessionExpiresAt < new Date())) {
+    res.status(401).end()
+    return
+  }
+
+  res.setHeader("Content-Type", "text/event-stream")
+  res.setHeader("Cache-Control", "no-cache")
+  res.setHeader("Connection", "keep-alive")
+  res.flushHeaders()
+
+  // 기존 연결이 있으면 교체 (같은 기기에서 재연결 등)
+  activeConnections.set(user.id, res)
+
+  // 30초마다 heartbeat (프록시/방화벽 연결 끊김 방지)
+  const heartbeat = setInterval(() => {
+    res.write(": heartbeat\n\n")
+  }, 30_000)
+
+  req.on("close", () => {
+    clearInterval(heartbeat)
+    // 이 연결이 현재 등록된 연결과 같을 때만 삭제
+    if (activeConnections.get(user.id) === res) {
+      activeConnections.delete(user.id)
+    }
+  })
 })
 
 // GET /auth/session — 세션 유효성 확인 (폴링용 경량 엔드포인트)
