@@ -35,6 +35,8 @@
 | **결과 리포트** | 종합 점수·영역별 점수·질문별 피드백·적합도 평가 |
 | **PDF 다운로드** | 리포트 전체를 PDF로 저장 |
 | **면접 기록 관리** | 과거 면접 기록 조회·상세보기·삭제 |
+| **SSE 세션 관리** | 다른 기기 로그인 시 서버 SSE push로 즉시 세션 무효화 |
+| **모바일 반응형 UI** | 전체 페이지 모바일 최적화 (햄버거 메뉴·카드 레이아웃·반응형 그리드) |
 
 ---
 
@@ -168,25 +170,28 @@ ai-interview-assistant/
 │       │   ├── layout.tsx                 # 앱 공통 레이아웃
 │       │   ├── globals.css                # 전역 스타일
 │       │   ├── page.tsx                   # 메인(홈) 페이지
-│       │   ├── login/page.tsx             # 로그인 (일반 / 관리자)
+│       │   ├── login/page.tsx             # 로그인 (role 기반 자동 분류 — 일반/관리자)
 │       │   ├── signup/page.tsx            # 회원가입
 │       │   ├── setup/page.tsx             # 면접 유형·스타일·난이도 설정
 │       │   ├── upload/page.tsx            # 이력서·자소서 업로드 · AI 분석 · 관련성 검사
 │       │   ├── interview/page.tsx         # 실시간 AI 화상 면접 (대기 → 진행 → 종료)
 │       │   ├── report/page.tsx            # 결과 리포트 · PDF 다운로드
 │       │   ├── profile/page.tsx           # 면접 기록 조회 · 상세보기 · 삭제
-│       │   └── admin/page.tsx             # 전공지식 DB 관리 (관리자 전용)
+│       │   └── admin/page.tsx             # 전공지식·사용자·설문 관리 (관리자 전용, 모바일 최적화)
 │       ├── components/
-│       │   ├── Navbar.tsx                 # 상단 네비게이션 바
+│       │   ├── Navbar.tsx                 # 상단 네비게이션 바 (모바일 햄버거 메뉴 포함)
+│       │   ├── SessionGuardProvider.tsx   # SSE 세션 만료 감지 · 토스트 알림 · 자동 로그아웃
 │       │   ├── Icons.tsx                  # SVG 아이콘 컴포넌트 모음
 │       │   ├── ScrollReveal.tsx           # 스크롤 애니메이션 래퍼
 │       │   ├── StartButton.tsx            # 홈 CTA 버튼
 │       │   └── TypewriterText.tsx         # 타이핑 효과 텍스트
 │       ├── hooks/
+│       │   ├── useSessionGuard.ts         # SSE 연결 유지 · 세션 무효화 이벤트 수신 훅
 │       │   ├── useFaceAnalysis.ts         # MediaPipe 얼굴·시선·눈깜빡임 분석 훅
 │       │   ├── useCallMedia.ts            # 카메라·마이크 스트림 관리 훅
 │       │   └── useInterviewQuestions.ts   # 면접 질문 로딩·상태 관리 훅
 │       ├── lib/
+│       │   ├── auth.ts                    # 세션 토큰 관리 · authFetch · clearSession
 │       │   └── sseStream.ts              # SSE 스트림 파싱 유틸리티
 │       └── types/
 │           └── dom-to-image-more.d.ts     # dom-to-image-more 타입 선언
@@ -202,7 +207,7 @@ ai-interview-assistant/
 │       ├── services/
 │       │   └── fileTextExtractor.ts       # PDF · DOCX → 텍스트 추출
 │       └── routes/
-│           ├── authRoutes.ts              # 회원가입 / 로그인 / 회원탈퇴
+│           ├── authRoutes.ts              # 회원가입 / 로그인 / 세션 SSE(GET /events) / 회원탈퇴
 │           ├── reportRoutes.ts            # 리포트 저장 / 조회 / 삭제
 │           ├── uploadRoutes.ts            # 이력서·자소서 업로드 및 텍스트 추출
 │           ├── interviewRoutes.ts         # AI 맞춤 질문 생성 (SSE 스트리밍 프록시)
