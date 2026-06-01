@@ -324,7 +324,10 @@ function ReadyScreen({
 
               {/* 레이아웃 설정 (세로) */}
               <div className="flex-1 bg-[#f8f9fc] p-3 sm:p-4 flex flex-col justify-center gap-3">
-                <p className="text-[11px] text-[#9ca3af] font-medium">화면 레이아웃</p>
+                <div>
+                  <p className="text-[11px] text-[#9ca3af] font-medium">화면 레이아웃</p>
+                  <p className="sm:hidden text-[10px] text-[#4f52e8] mt-0.5">모바일에서는 PiP 모드로 자동 설정됩니다</p>
+                </div>
                 <div className="flex sm:flex-col gap-2">
                   {([
                     {
@@ -395,6 +398,8 @@ function ReadyScreen({
                       <button
                         onClick={() => setLayout(opt.value)}
                         className={`flex-1 sm:flex-none w-full flex items-center justify-center sm:justify-start gap-2.5 px-2.5 sm:px-3 py-2 rounded-lg border text-[12px] font-medium transition-all ${
+                          opt.value !== "pip" ? "sm:opacity-100 opacity-40 pointer-events-none sm:pointer-events-auto" : ""
+                        } ${
                           layout === opt.value
                             ? "border-[#4f52e8] bg-[#eef0fd] text-[#4f52e8]"
                             : "border-[#e4e7ef] bg-white text-[#6b7280] hover:border-[#a5a7f3]"
@@ -701,6 +706,17 @@ export default function InterviewPage() {
   const [micAvailable, setMicAvailable] = useState(true);
   const [layout, setLayout] = useState<"split" | "pip" | "full">("pip");
   const [splitRatio, setSplitRatio] = useState<"5:5" | "7:3" | "3:7">("5:5");
+
+  // 모바일 화면(< 640px)에서는 PiP 모드 강제 유지
+  useEffect(() => {
+    const enforce = () => {
+      if (window.innerWidth < 640) setLayout("pip");
+    };
+    enforce();
+    window.addEventListener("resize", enforce);
+    return () => window.removeEventListener("resize", enforce);
+  }, []);
+
   // 추가질문 Wav2Lip 영상 백그라운드 생성 결과 (질문 텍스트 → 영상 URL)
   const additionalVideosRef = useRef<Record<string, string>>({});
 
@@ -1519,13 +1535,13 @@ export default function InterviewPage() {
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[12px] font-semibold text-[#374151]">{micAvailable ? "답변 확인" : "텍스트 답변"}</span>
-                  <span className="text-[11px] text-[#9ca3af]">{micAvailable ? "내용을 수정하거나 그대로 진행하세요" : "답변을 입력하고 다음 질문으로 진행하세요"}</span>
+                  <span className="hidden sm:inline text-[11px] text-[#9ca3af]">{micAvailable ? "내용을 수정하거나 그대로 진행하세요" : "답변을 입력하고 다음 질문으로 진행하세요"}</span>
 
                 </div>
                 <textarea
                   value={pendingAnswerEdited}
                   onChange={(e) => setPendingAnswerEdited(e.target.value)}
-                  rows={3}
+                  rows={2}
                   placeholder={micAvailable ? "인식된 답변이 없습니다. 직접 입력하거나 재답변하세요." : "답변을 직접 입력하세요."}
                   className="w-full text-[12px] text-[#374151] bg-[#f8f9fc] border border-[#e4e7ef] rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-[#4f52e8] leading-relaxed"
                 />
