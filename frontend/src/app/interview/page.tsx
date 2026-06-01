@@ -1531,7 +1531,7 @@ export default function InterviewPage() {
             </div>
           ) : pendingAnswer !== null ? (
             /* 답변 검토 패널 */
-            <div className="flex flex-col sm:flex-row items-start gap-3 w-full">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 w-full">
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[12px] font-semibold text-[#374151]">{micAvailable ? "답변 확인" : "텍스트 답변"}</span>
@@ -1546,7 +1546,7 @@ export default function InterviewPage() {
                   className="w-full text-[12px] text-[#374151] bg-[#f8f9fc] border border-[#e4e7ef] rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-[#4f52e8] leading-relaxed"
                 />
               </div>
-              <div className="flex sm:flex-col flex-row gap-2 flex-shrink-0 sm:pt-5">
+              <div className="flex sm:flex-col flex-row gap-2 sm:flex-shrink-0 sm:pt-5">
                 {/* 재답변 / 다시 입력 */}
                 <button
                   onClick={() => {
