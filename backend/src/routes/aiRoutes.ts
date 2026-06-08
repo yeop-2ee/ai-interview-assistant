@@ -116,11 +116,14 @@ router.post("/report", async (req: Request, res: Response) => {
 
   const rawQuestions = Array.isArray(req.body.questions) ? req.body.questions : []
   const rawAnswers   = Array.isArray(req.body.answers)   ? req.body.answers   : []
+  const rawFollowupLabels = (req.body.followupParentLabels && typeof req.body.followupParentLabels === "object")
+    ? req.body.followupParentLabels : {}
   const body = {
-    questions:     rawQuestions.slice(0, 20).map((q: unknown) => validateString(q, 500)),
-    answers:       rawAnswers.slice(0, 20).map((a: unknown) => validateString(a, 1000)),
-    department:    validateString(req.body.department,    100),
-    interviewType: validateString(req.body.interviewType,  50),
+    questions:            rawQuestions.slice(0, 20).map((q: unknown) => validateString(q, 500)),
+    answers:              rawAnswers.slice(0, 20).map((a: unknown) => validateString(a, 1000)),
+    department:           validateString(req.body.department,    100),
+    interviewType:        validateString(req.body.interviewType,  50),
+    followupParentLabels: rawFollowupLabels,
   }
 
   try {

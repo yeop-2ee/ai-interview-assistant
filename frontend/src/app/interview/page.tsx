@@ -838,6 +838,7 @@ export default function InterviewPage() {
             answers: userAnswers,
             department: settings.department || "",
             interviewType: settings.interviewType || "mixed",
+            followupParentLabels: Object.fromEntries(followupParentLabelRef.current),
           }),
         });
 
@@ -1663,7 +1664,13 @@ export default function InterviewPage() {
                     // 꼬리질문 삽입
                     const followup = pendingFollowupRef.current;
                     if (followup && !followupTextsRef.current.has(currentQ)) {
-                      const parentLabel = `Q${qIdxRef.current + 1}`;
+                      // 이전에 삽입된 꼬리질문 수를 제외한 실제 주 질문 번호 계산
+                      const followupsBeforeOrAt = [...followupTextsRef.current].filter(fq => {
+                        const fqIdx = questionsRef.current.indexOf(fq);
+                        return fqIdx !== -1 && fqIdx <= qIdxRef.current;
+                      }).length;
+                      const mainQNumber = qIdxRef.current + 1 - followupsBeforeOrAt;
+                      const parentLabel = `Q${mainQNumber}`;
                       followupParentLabelRef.current.set(followup, parentLabel);
                       const newQs = questionsRef.current.slice();
                       newQs.splice(qIdxRef.current + 1, 0, followup);

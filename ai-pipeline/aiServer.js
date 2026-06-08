@@ -320,24 +320,29 @@ function buildResumePrompt(department, jobRole, companyType, experienceLevel, st
 }
 
 // ── 리포트용 꼬리질문 추출 (llama 담당) ──────────────────────────────────
-// 각 Q&A에 대해 병렬로 꼬리질문 2개 생성
-async function generateReportFollowUps(questions, answers, department, jobRole) {
+// followupSet: 꼬리질문인 질문 텍스트 집합 (해당 행은 스킵)
+async function generateReportFollowUps(questions, answers, department, jobRole, followupSet = new Set()) {
   const context = [jobRole, department].filter(Boolean).join(' / ');
 
   const tasks = questions.map((q, i) => {
+    // 꼬리질문 행은 추가 꼬리질문 생성 불필요
+    if (followupSet.has(q)) return Promise.resolve([]);
+
     const answer = (answers[i] || '(답변 없음)').substring(0, 300);
     const prompt =
-      `면접 Q&A를 보고 면접관이 추가로 물어볼 수 있는 꼬리질문 2개를 추출하세요.\n\n` +
+      `면접 Q&A를 보고 면접관이 실제로 더 물어볼 만한 꼬리질문이 있는지 판단하세요.\n\n` +
       (context ? `직무: ${context}\n` : '') +
       `질문: ${q}\n` +
       `답변: ${answer}\n\n` +
-      `답변에서 구체적으로 언급된 내용을 바탕으로 꼬리질문 2개를 작성하세요.\n` +
-      `- 짧고 날카롭게, 물음표로 끝낼 것.\n` +
+      `[판단 기준]\n` +
+      `- 답변에서 구체적인 사례·수치·경험을 언급했고 그것에 대해 더 파고들 만한 내용이 있을 때만 꼬리질문을 작성하세요.\n` +
+      `- 답변이 추상적이거나 "(답변 없음)"이거나 이미 충분히 설명된 경우에는 빈 배열을 반환하세요.\n` +
+      `- 꼬리질문이 있다면 1~2개, 짧고 날카롭게, 물음표로 끝낼 것.\n` +
       `- 반드시 아래 JSON 형식으로만 응답:\n` +
-      `{"followUpQuestions":["꼬리질문1","꼬리질문2"]}`;
+      `{"followUpQuestions":["꼬리질문1"]} 또는 {"followUpQuestions":[]}`;
 
     return callMLX(llamaClient, LLAMA_MODEL, prompt)
-      .then(r => Array.isArray(r.followUpQuestions) ? r.followUpQuestions.slice(0, 2) : [])
+      .then(r => Array.isArray(r.followUpQuestions) ? r.followUpQuestions.filter(Boolean).slice(0, 2) : [])
       .catch(() => []);
   });
 
@@ -539,7 +544,9 @@ function evalAnswerLength(text = '') {
 
 // [gemma] 리포트 본문 생성 → [llama] 꼬리질문 추출 → 병합
 app.post('/generate/report', async (req, res) => {
-  const { questions = [], answers = [], department = '', interviewType = 'mixed', interviewStyle = '' } = req.body;
+  const { questions = [], answers = [], department = '', interviewType = 'mixed', interviewStyle = '', followupParentLabels = {} } = req.body;
+  // 꼬리질문 텍스트 집합 (해당 행은 꼬리질문 생성 스킵)
+  const followupSet = new Set(Object.keys(followupParentLabels));
 
   const send = setupSSE(res);
 
@@ -567,13 +574,24 @@ ${interviewStyle ? `면접관 스타일을 고려해 평가하세요. 예: 압�
 [면접 Q&A]
 ${qaText}
 
-[점수 기준 — 반드시 엄격하게 적용]
-- 0~30: 질문을 이해 못 하거나 답변이 거의 없음
-- 31~50: 답변했지만 두루뭉술하고 구체성·근거 없음 (대부분의 신입이 여기에 해당)
-- 51~65: 내용은 있으나 논리가 약하거나 깊이가 부족함
-- 66~80: 구체적 경험+논리+결과까지 갖춘 답변
-- 81~100: 탁월한 답변, 매우 드문 경우
-평균 답변의 기준점은 45점입니다. 좋게 봐주는 것은 금지입니다.
+[appropriateness 점수 산정 방법 — 각 Q&A를 아래 체크리스트로 개별 분석]
+각 항목을 실제 답변 내용을 근거로 판단하여 점수를 산정하세요. 추측이나 평균치 사용 금지.
+
+체크리스트 (항목별 가중치):
+1. 질문의 의도를 정확히 파악하고 답했는가? (핵심 15점)
+2. 구체적인 경험·사례·수치·프로젝트가 언급되었는가? (15점)
+3. 논리적 흐름(상황→행동→결과 또는 이유→결론)이 있는가? (10점)
+4. 답변의 깊이와 완결성이 충분한가? (10점)
+
+점수 구간 (위 체크리스트 결과를 합산):
+- 0~25: 답변 없음 또는 질문과 무관한 내용
+- 26~40: 질문 이해했으나 내용이 거의 없거나 "잘 모르겠습니다" 수준
+- 41~55: 답변은 했으나 추상적·두루뭉술하고 근거·사례 없음 (대부분의 신입)
+- 56~70: 내용은 있으나 논리 흐름이 약하거나 구체성이 한 가지 부족
+- 71~85: 구체적 경험+논리+결과까지 갖춘 좋은 답변
+- 86~100: 탁월한 답변 — 독창적 통찰·수치·검증된 결과까지 포함, 매우 드문 경우
+
+중요: 점수는 반드시 실제 답변 텍스트를 기반으로 산정하세요. 같은 질문이라도 답변 내용에 따라 점수가 달라야 합니다. "(답변 없음)"은 20점 이하. 좋게 봐주기 금지.
 
 응답 형식 (JSON만, 다른 텍스트 없음, 모든 문자열 값은 반드시 한국어):
 {
@@ -589,7 +607,7 @@ ${questionFeedbackExample}
   ]
 }
 
-중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 모든 점수는 위 기준을 엄격하게 적용한 0~100 사이 정수입니다.`;
+중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 모든 점수는 위 체크리스트를 실제 답변에 적용한 0~100 사이 정수입니다.`;
 
   try {
     // 1단계: gemma로 리포트 본문 생성 (0~75%)
@@ -611,7 +629,7 @@ ${questionFeedbackExample}
 
     // 2단계: llama로 꼬리질문 병렬 생성 (75~95%)
     send({ type: 'progress', progress: 75, step: '꼬리질문 생성 중...' });
-    const allFollowUps = await generateReportFollowUps(questions, answers, department, req.body.jobRole || '');
+    const allFollowUps = await generateReportFollowUps(questions, answers, department, req.body.jobRole || '', followupSet);
     send({ type: 'progress', progress: 95 });
 
     // 3단계: 병합

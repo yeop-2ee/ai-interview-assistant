@@ -549,8 +549,8 @@ function ReportContent() {
                     </div>
                   )}
 
-                  {/* 꼬리 질문 */}
-                  {fb?.followUpQuestions?.length > 0 && (
+                  {/* 꼬리 질문 — 꼬리질문 행에는 표시하지 않음 */}
+                  {fb?.followUpQuestions?.length > 0 && !isFollowup && (
                     <div className="ml-4 sm:ml-8">
                       <span className="text-[11px] text-[#9ca3af] font-medium block mb-2">나올 수 있는 꼬리 질문</span>
                       <div className="flex flex-wrap gap-2">
