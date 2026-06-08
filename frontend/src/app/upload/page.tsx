@@ -35,12 +35,16 @@ async function uploadAndExtract(file: File): Promise<{ ok: boolean; extractedTex
   if (!["pdf", "docx", "hwp", "hwpx"].includes(ext)) {
     return { ok: false, error: "PDF, DOCX, HWP 파일만 업로드 가능합니다." };
   }
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(`${BACKEND_URL}/upload/resume`, { method: "POST", body: form });
-  const data = await res.json();
-  if (!res.ok) return { ok: false, error: data.message ?? "파일 처리 중 오류가 발생했습니다." };
-  return { ok: true, extractedText: data.extractedText };
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BACKEND_URL}/upload/resume`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.message ?? "파일 처리 중 오류가 발생했습니다." };
+    return { ok: true, extractedText: data.extractedText };
+  } catch {
+    return { ok: false, error: "파일 처리 중 오류가 발생했습니다." };
+  }
 }
 
 function DropZone({ label, state, onChange, onRemove }: {
