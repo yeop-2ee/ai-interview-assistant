@@ -32,15 +32,16 @@ export async function extractTextFromFile(
     const absFilePath = path.resolve(filePath);
     const tmpWithExt = path.join(outDir, `${path.basename(absFilePath)}${ext}`);
     fs.copyFileSync(absFilePath, tmpWithExt);
-    // LibreOffice는 입력파일 확장자를 .pdf로 교체해서 저장 (e.g. abc.hwp → abc.pdf)
     const pdfPath = path.join(outDir, `${path.basename(absFilePath)}.pdf`);
-    // 변환별 독립 프로필 디렉터리 (동시 요청 시 잠금 충돌 방지)
     const profileDir = path.join(outDir, `lo_profile_${process.pid}_${Date.now()}`);
+    const cmd = `"${SOFFICE}" --headless --norestore -env:UserInstallation=file://${profileDir} --convert-to pdf --outdir "${outDir}" "${tmpWithExt}"`;
+    console.log("[HWP] absFilePath:", absFilePath, "exists:", fs.existsSync(absFilePath));
+    console.log("[HWP] tmpWithExt:", tmpWithExt, "exists:", fs.existsSync(tmpWithExt));
+    console.log("[HWP] cmd:", cmd);
     try {
-      execSync(
-        `"${SOFFICE}" --headless --norestore -env:UserInstallation=file://${profileDir} --convert-to pdf --outdir "${outDir}" "${tmpWithExt}"`,
-        { timeout: 60000 },
-      );
+      const output = execSync(cmd, { timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] });
+      console.log("[HWP] soffice output:", output?.toString());
+      console.log("[HWP] pdfPath exists:", fs.existsSync(pdfPath));
       const buffer = fs.readFileSync(pdfPath);
       const data = await pdfParse(buffer);
       return data.text.trim();
