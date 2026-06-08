@@ -28,11 +28,12 @@ export async function extractTextFromFile(
 
   if (ext === ".hwp" || ext === ".hwpx") {
     const outDir = os.tmpdir();
-    // multer가 확장자 없이 저장하므로 LibreOffice 포맷 인식을 위해 확장자 붙여 복사
-    const tmpWithExt = `${filePath}${ext}`;
-    fs.copyFileSync(filePath, tmpWithExt);
+    // multer 상대경로를 절대경로로 변환 후 확장자 붙여 복사 (LibreOffice는 절대경로 필요)
+    const absFilePath = path.resolve(filePath);
+    const tmpWithExt = path.join(outDir, `${path.basename(absFilePath)}${ext}`);
+    fs.copyFileSync(absFilePath, tmpWithExt);
     // LibreOffice는 입력파일 확장자를 .pdf로 교체해서 저장 (e.g. abc.hwp → abc.pdf)
-    const pdfPath = path.join(outDir, `${path.basename(filePath)}.pdf`);
+    const pdfPath = path.join(outDir, `${path.basename(absFilePath)}.pdf`);
     try {
       execSync(`"${SOFFICE}" --headless --convert-to pdf --outdir "${outDir}" "${tmpWithExt}"`, {
         timeout: 60000,
