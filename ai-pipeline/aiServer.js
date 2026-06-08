@@ -3,16 +3,22 @@ import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 
-const DEFAULT_LLM_URL = 'http://localhost:11434';
-const DEFAULT_LLM_MODEL = 'gemma3:12b';
+// ── 모델 설정 ──────────────────────────────────────────────────────────────
+// llama: 면접 질문 생성 / 꼬리질문 생성 / 리포트 꼬리질문 추출 (파인튜닝 예정)
+// gemma: 이력서·자소서 분석 / 리포트 본문 작성
+//
+// 파인튜닝 완료 후 .env에서 아래 두 변수만 교체하면 됩니다:
+//   LLAMA_MODEL=llama3.1:8b-finetuned
+//   LLAMA_SERVER_URL=http://...  (별도 서버라면)
 
-const MLX_SERVER_URL = process.env.LLM_SERVER_URL || process.env.MLX_SERVER_URL || DEFAULT_LLM_URL;
-const MLX_MODEL = process.env.LLM_MODEL || process.env.MLX_MODEL || DEFAULT_LLM_MODEL;
+const LLAMA_SERVER_URL = process.env.LLAMA_SERVER_URL || process.env.LLM_SERVER_URL || 'http://localhost:11434';
+const LLAMA_MODEL      = process.env.LLAMA_MODEL      || 'gemma3:12b'; // 파인튜닝 완료 후 llama3.1:8b로 교체
 
-const client = new OpenAI({
-  baseURL: `${MLX_SERVER_URL}/v1`,
-  apiKey: 'ollama',
-});
+const GEMMA_SERVER_URL = process.env.GEMMA_SERVER_URL || process.env.LLM_SERVER_URL || 'http://localhost:11434';
+const GEMMA_MODEL      = process.env.GEMMA_MODEL      || 'gemma3:12b';
+
+const llamaClient = new OpenAI({ baseURL: `${LLAMA_SERVER_URL}/v1`, apiKey: 'ollama' });
+const gemmaClient = new OpenAI({ baseURL: `${GEMMA_SERVER_URL}/v1`, apiKey: 'ollama' });
 
 const app = express();
 app.use(cors());
@@ -60,7 +66,6 @@ const COMPANY_TYPE_MAP = {
   foreign:  '외국계 기업 (글로벌 역량·영어 소통·다문화 적응력 중시)',
 };
 
-// 회사 유형별 면접 맥락 — 질문에 반드시 녹여야 할 현실적 상황
 const COMPANY_CONTEXT = {
   startup:  `스타트업 맥락을 질문에 반드시 반영하세요: 인력·시간·예산이 부족한 상황, 혼자 넓은 영역을 담당해야 하는 상황, 완벽한 설계보다 빠른 출시가 우선되는 상황, 기술 부채와 속도 사이의 트레이드오프. 질문에 이런 현실적 압박 상황을 구체적으로 포함하세요.`,
   smb:      `중소기업 맥락을 질문에 반영하세요: 제한된 리소스 안에서 실용적 해결책, 즉시 투입 가능한 실무 역량, 체계보다 실행력이 중요한 환경.`,
@@ -77,6 +82,8 @@ const EXPERIENCE_MAP = {
   senior:   '시니어 (5년 이상) — 리더십·아키텍처 설계·기술 의사결정·멘토링 역량 위주 질문',
 };
 
+// ── LLM 호출 헬퍼 ─────────────────────────────────────────────────────────
+
 function setupSSE(res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -89,9 +96,18 @@ function cleanMarkdownJSON(text) {
   return text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
 }
 
-async function streamRaw(prompt, onProgress, estimatedChars = 400, extraOptions = {}) {
+function extractJSON(text) {
+  const cleaned = text.replace(/<\|.*?\|>/g, '').trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) throw new Error(`JSON 객체 없음: ${cleaned.substring(0, 80)}`);
+  return JSON.parse(cleaned.slice(start, end + 1));
+}
+
+// 스트리밍 원시 호출 (client·model 지정)
+async function streamRaw(client, model, prompt, onProgress, estimatedChars = 400, extraOptions = {}) {
   const stream = await client.chat.completions.create({
-    model: MLX_MODEL,
+    model,
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     stream: true,
@@ -114,8 +130,9 @@ async function streamRaw(prompt, onProgress, estimatedChars = 400, extraOptions 
   return fullContent;
 }
 
-async function streamMLX(prompt, onProgress, estimatedChars = 400) {
-  const raw = await streamRaw(prompt, onProgress, estimatedChars);
+// 스트리밍 + JSON 파싱 (client·model 지정)
+async function streamMLX(client, model, prompt, onProgress, estimatedChars = 400) {
+  const raw = await streamRaw(client, model, prompt, onProgress, estimatedChars);
   try {
     return extractJSON(raw);
   } catch {
@@ -124,17 +141,10 @@ async function streamMLX(prompt, onProgress, estimatedChars = 400) {
   }
 }
 
-function extractJSON(text) {
-  const cleaned = text.replace(/<\|.*?\|>/g, '').trim();
-  const start = cleaned.indexOf('{');
-  const end = cleaned.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) throw new Error(`JSON 객체 없음: ${cleaned.substring(0, 80)}`);
-  return JSON.parse(cleaned.slice(start, end + 1));
-}
-
-async function callMLX(prompt, { allowTextFallback = false } = {}) {
+// 논스트리밍 호출 (client·model 지정)
+async function callMLX(client, model, prompt, { allowTextFallback = false } = {}) {
   const result = await client.chat.completions.create({
-    model: MLX_MODEL,
+    model,
     messages: [
       { role: 'system', content: '당신은 JSON 형식으로만 응답합니다. 절대로 JSON 외의 텍스트를 출력하지 마세요.' },
       { role: 'user', content: prompt },
@@ -148,7 +158,6 @@ async function callMLX(prompt, { allowTextFallback = false } = {}) {
     return extractJSON(raw);
   } catch {
     if (allowTextFallback) {
-      // 꼬리질문 전용 — 모델이 JSON 없이 질문 텍스트로 응답한 경우
       const cleaned = raw.replace(/<\|.*?\|>/g, '').trim().replace(/^"|"$/g, '');
       if (cleaned.includes('?') && cleaned.length > 5) {
         return { followup: cleaned, needed: 'yes', type: 'shallow' };
@@ -158,7 +167,8 @@ async function callMLX(prompt, { allowTextFallback = false } = {}) {
   }
 }
 
-// ── 공통 2개: 세션마다 LLM으로 생성 (스타일 반영) ───────────────────
+// ── 프롬프트 빌더 ─────────────────────────────────────────────────────────
+
 function buildBaseContext(department, jobRole, companyType, experienceLevel, style) {
   return {
     persona: STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly,
@@ -180,13 +190,10 @@ function buildCommonPrompt(department, jobRole, companyType, experienceLevel, st
   if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
 
   p += `아래 2개의 면접 질문을 생성하세요. 두 질문은 서로 다른 주제를 다뤄야 합니다.\n\n`;
-
   p += `질문 1 — [지원 동기 & 기여 계획]\n`;
   p += `"왜 지원했나요?"처럼 진부한 표현 금지. 지원자의 강점이나 성장 방향을 자연스럽게 끌어내는 질문.\n\n`;
-
   p += `질문 2 — [실패·압박·갈등 경험]\n`;
   p += `"약점이 뭔가요" 같은 템플릿 금지. 실제 어려운 경험에서 어떻게 대응했는지를 묻는 질문.\n\n`;
-
   p += `[작성 규칙]\n`;
   p += `- 질문은 짧고 명확하게. 한 문장, 물음표(?)는 끝에 하나만.\n`;
   p += `- 질문 안에 상황 설명이나 배경 서술 넣지 말 것 — 핵심 질문만 간결하게.\n`;
@@ -197,7 +204,6 @@ function buildCommonPrompt(department, jobRole, companyType, experienceLevel, st
   return p;
 }
 
-// ── 직무/인성 3개 (이력서 없이) ───────────────────────────────────────
 function buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries = [], previousQuestions = []) {
   const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
   const target = jobRole ? `${department} 학과 / ${jobRole}` : department;
@@ -214,7 +220,6 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
     previousQuestions.forEach(q => p += `- ${q}\n`);
     p += `\n`;
   }
-
   if (knowledgeEntries.length > 0) {
     p += `[${department} 직무 전공지식 참고]\n`;
     knowledgeEntries.slice(0, 10).forEach(e => {
@@ -273,7 +278,6 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
   return p;
 }
 
-// ── 이력서 2개 (resume/mixed 전용) ──────────────────────────────────
 function buildResumePrompt(department, jobRole, companyType, experienceLevel, style, resumeText, previousQuestions = []) {
   const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
   const target = jobRole ? `${department} / ${jobRole}` : department;
@@ -302,10 +306,8 @@ function buildResumePrompt(department, jobRole, companyType, experienceLevel, st
   }
   p += `- 두 질문은 이력서의 서로 다른 경험을 기반으로 할 것.\n`;
   p += `- 일반 기술 질문 금지 (예: "REST란?", "협업 어떻게 하나요?" 등)\n\n`;
-
   p += `질문 1 — 이력서에서 기술적 판단이 필요했던 경험 기반 질문.\n`;
   p += `질문 2 — 질문 1과 다른 경험에서 아쉬웠던 점 또는 개선 방향 기반 질문.\n\n`;
-
   p += `작성 규칙:\n`;
   p += `- 질문은 짧고 명확하게. 한 문장, 물음표(?)는 끝에 하나만.\n`;
   p += `- 질문 안에 상황 설명이나 배경 서술 넣지 말 것 — 핵심 질문만 간결하게.\n`;
@@ -317,6 +319,34 @@ function buildResumePrompt(department, jobRole, companyType, experienceLevel, st
   return p;
 }
 
+// ── 리포트용 꼬리질문 추출 (llama 담당) ──────────────────────────────────
+// 각 Q&A에 대해 병렬로 꼬리질문 2개 생성
+async function generateReportFollowUps(questions, answers, department, jobRole) {
+  const context = [jobRole, department].filter(Boolean).join(' / ');
+
+  const tasks = questions.map((q, i) => {
+    const answer = (answers[i] || '(답변 없음)').substring(0, 300);
+    const prompt =
+      `면접 Q&A를 보고 면접관이 추가로 물어볼 수 있는 꼬리질문 2개를 추출하세요.\n\n` +
+      (context ? `직무: ${context}\n` : '') +
+      `질문: ${q}\n` +
+      `답변: ${answer}\n\n` +
+      `답변에서 구체적으로 언급된 내용을 바탕으로 꼬리질문 2개를 작성하세요.\n` +
+      `- 짧고 날카롭게, 물음표로 끝낼 것.\n` +
+      `- 반드시 아래 JSON 형식으로만 응답:\n` +
+      `{"followUpQuestions":["꼬리질문1","꼬리질문2"]}`;
+
+    return callMLX(llamaClient, LLAMA_MODEL, prompt)
+      .then(r => Array.isArray(r.followUpQuestions) ? r.followUpQuestions.slice(0, 2) : [])
+      .catch(() => []);
+  });
+
+  return Promise.all(tasks);
+}
+
+// ── 라우트 ────────────────────────────────────────────────────────────────
+
+// [llama] 면접 질문 생성
 app.post('/generate/questions', async (req, res) => {
   const { resumeText, knowledgeEntries = [], department, jobRole, companyType, interviewType } = req.body;
   const experienceLevel = 'newcomer';
@@ -328,7 +358,6 @@ app.post('/generate/questions', async (req, res) => {
     let questions = [];
     const hasResume = resumeText && resumeText.trim().length > 0;
 
-    // 진행률 중복 전송 방지 래퍼
     let lastProgress = -1;
     const sendProgress = (progress, step) => {
       if (progress !== lastProgress) {
@@ -337,33 +366,36 @@ app.post('/generate/questions', async (req, res) => {
       }
     };
 
-    // ── 패스 1 (공통): 모든 유형 공통 2개 (0~25%) ─────────────
+    // 패스 1: 공통 2개 (0~25%)
     sendProgress(0, '공통 질문 생성 중...');
     const commonPass = await streamMLX(
+      llamaClient, LLAMA_MODEL,
       buildCommonPrompt(department, jobRole, companyType, experienceLevel, style),
       (p) => sendProgress(Math.floor(p * 0.25), '공통 질문 생성 중...'),
-      150, // 공통 2개: ~150자
+      150,
     );
     const commonQs = Array.isArray(commonPass.questions) ? commonPass.questions.slice(0, 2) : [];
 
     if (interviewType === 'resume' || interviewType === 'mixed') {
-      // ── 패스 2: 직무 3개 (25~65%) ───────────────────────────
+      // 패스 2: 직무 3개 (25~65%)
       sendProgress(25, '직무 질문 생성 중...');
       const pass2 = await streamMLX(
+        llamaClient, LLAMA_MODEL,
         buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries, commonQs),
         (p) => sendProgress(25 + Math.floor(p * 0.40), '직무 질문 생성 중...'),
-        220, // 직무 3개: ~220자
+        220,
       );
       const jobQs = Array.isArray(pass2.questions) ? pass2.questions.slice(0, 3) : [];
 
-      // ── 패스 3: 이력서 2개 (65~95%) — 이력서 없으면 스킵 ────
+      // 패스 3: 이력서 2개 (65~95%)
       let resumeQs = [];
       if (hasResume) {
         sendProgress(65, '이력서 질문 생성 중...');
         const pass3 = await streamMLX(
+          llamaClient, LLAMA_MODEL,
           buildResumePrompt(department, jobRole, companyType, experienceLevel, style, resumeText, [...commonQs, ...jobQs]),
           (p) => sendProgress(65 + Math.floor(p * 0.30), '이력서 질문 생성 중...'),
-          150, // 이력서 2개: ~150자
+          150,
         );
         resumeQs = Array.isArray(pass3.questions) ? pass3.questions.slice(0, 2) : [];
       }
@@ -371,15 +403,15 @@ app.post('/generate/questions', async (req, res) => {
       questions = [...commonQs, ...jobQs, ...resumeQs];
 
     } else {
-      // ── 패스 2: 직무/인성 3개 (25~95%) ─────────────────────
+      // 패스 2: 직무/인성 3개 (25~95%)
       sendProgress(25, '직무 질문 생성 중...');
       const pass2 = await streamMLX(
+        llamaClient, LLAMA_MODEL,
         buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries, commonQs),
         (p) => sendProgress(25 + Math.floor(p * 0.70), '직무 질문 생성 중...'),
-        220, // 직무 3개: ~220자
+        220,
       );
       const jobQs = Array.isArray(pass2.questions) ? pass2.questions.slice(0, 3) : [];
-
       questions = [...commonQs, ...jobQs];
     }
 
@@ -415,7 +447,7 @@ app.post('/generate/questions', async (req, res) => {
   res.end();
 });
 
-// ── 꼬리질문 오염 감지 ────────────────────────────────────────────────
+// 꼬리질문 오염 감지
 const FOLLOWUP_CONTAMINATION_MARKERS = ['어투 유지', '금지 사항', '절대 금지', '면접관 성격', 'JSON 형식', '반드시 아래', '지시 ---'];
 
 function isContaminated(text) {
@@ -423,7 +455,6 @@ function isContaminated(text) {
 }
 
 function sanitizeFollowup(text) {
-  // 첫 번째 물음표까지만 자르기
   const qIdx = text.indexOf('?');
   if (qIdx !== -1 && qIdx < text.length - 1) {
     return text.slice(0, qIdx + 1).trim();
@@ -431,7 +462,7 @@ function sanitizeFollowup(text) {
   return text.trim();
 }
 
-// ── 꼬리질문 생성 ──────────────────────────────────────────────────────
+// [llama] 면접 중 꼬리질문 생성
 app.post('/generate/followup', async (req, res) => {
   const { question = '', answer = '', department = '', jobRole = '' } = req.body;
   const style = resolveStyle(req.body.style || 'friendly');
@@ -447,7 +478,7 @@ app.post('/generate/followup', async (req, res) => {
     `{"followup":"꼬리질문"}`;
 
   try {
-    const genResult = await callMLX(followupPrompt, { allowTextFallback: true });
+    const genResult = await callMLX(llamaClient, LLAMA_MODEL, followupPrompt, { allowTextFallback: true });
     let followup = typeof genResult.followup === 'string' ? genResult.followup : null;
     if (followup) {
       if (isContaminated(followup)) {
@@ -464,33 +495,11 @@ app.post('/generate/followup', async (req, res) => {
   }
 });
 
-// 학과 그룹
-const DEPT_GROUPS = {
-  IT: ['컴퓨터소프트웨어과','게임콘텐츠과','정보통신과','전자공학과'],
-  전기건설: ['전기과','건축과','실내건축과'],
-  디자인미디어: ['시각디자인과','웹툰만화콘텐츠과','영상콘텐츠과','패션디자인비즈니스과'],
-  뷰티: ['뷰티스타일리스트과'],
-  엔터: ['K-POP과'],
-  경영유통: ['경영학과','세무회계과','유통물류과'],
-  호텔조리관광: ['호텔외식조리과','관광과','항공서비스과'],
-  보건의료: ['보건의료행정과','식품영양학과','반려동물보건과','스포츠재활과','유아특수재활과'],
-  사회복지교육: ['사회복지과','사회복지경영과','유아교육과'],
-  군경: ['군사학과','경찰경호보안과'],
-};
-
-function getDeptGroup(dept) {
-  for (const [group, depts] of Object.entries(DEPT_GROUPS)) {
-    if (depts.includes(dept)) return group;
-  }
-  return null;
-}
-
-const ALL_DEPT_GROUPS_LIST = Object.keys(DEPT_GROUPS).join(', ');
-
 app.post('/generate/relevance', async (req, res) => {
   res.json({ isRelevant: true, reason: null });
 });
 
+// [gemma] 이력서·자소서 분석
 app.post('/generate/summary', async (req, res) => {
   console.log('[summary] 요청 수신');
   const { resumeText = '', coverText = '', department = '' } = req.body;
@@ -510,7 +519,7 @@ app.post('/generate/summary', async (req, res) => {
   const send = setupSSE(res);
 
   try {
-    const raw = await streamRaw(prompt, (p) => send({ type: 'progress', progress: p }), 600);
+    const raw = await streamRaw(gemmaClient, GEMMA_MODEL, prompt, (p) => send({ type: 'progress', progress: p }), 600);
     const parsed = JSON.parse(cleanMarkdownJSON(raw));
     send({ type: 'done', data: parsed });
   } catch (error) {
@@ -528,6 +537,7 @@ function evalAnswerLength(text = '') {
   return '적절';
 }
 
+// [gemma] 리포트 본문 생성 → [llama] 꼬리질문 추출 → 병합
 app.post('/generate/report', async (req, res) => {
   const { questions = [], answers = [], department = '', interviewType = 'mixed', interviewStyle = '' } = req.body;
 
@@ -542,8 +552,9 @@ app.post('/generate/report', async (req, res) => {
 
   const qCount = questions.length;
 
+  // gemma 프롬프트: followUpQuestions 제외
   const questionFeedbackExample = questions.map((q, i) => {
-    return `    {"appropriateness": 60, "improvedAnswer": "Q${i + 1} 개선된 답변을 한국어로 2~3문장 작성", "followUpQuestions": ["Q${i + 1} 꼬리질문1을 한국어로", "Q${i + 1} 꼬리질문2를 한국어로"], "comment": "Q${i + 1} 종합 피드백을 한국어로 2문장 이상 작성"}`;
+    return `    {"appropriateness": 60, "improvedAnswer": "Q${i + 1} 개선된 답변을 한국어로 2~3문장 작성", "comment": "Q${i + 1} 종합 피드백을 한국어로 2문장 이상 작성"}`;
   }).join(',\n');
 
   const prompt = `당신은 한국어로만 대답하는 채용 면접 전문가입니다. 절대 영어를 사용하지 마세요. 모든 응답은 반드시 한국어로 작성하세요.
@@ -570,31 +581,35 @@ ${questionFeedbackExample}
   ]
 }
 
-중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 각 항목은 해당 질문과 답변에 대한 피드백입니다. 모든 점수는 실제 답변 품질을 반영한 0~100 사이 정수입니다.`;
+중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 모든 점수는 실제 답변 품질을 반영한 0~100 사이 정수입니다.`;
 
   try {
-    const ESTIMATED_CHARS = Math.max(2000, qCount * 800);
+    // 1단계: gemma로 리포트 본문 생성 (0~75%)
+    const ESTIMATED_CHARS = Math.max(2000, qCount * 600);
     const raw = await streamRaw(
+      gemmaClient, GEMMA_MODEL,
       prompt,
-      (p) => send({ type: 'progress', progress: p }),
+      (p) => send({ type: 'progress', progress: Math.floor(p * 0.75) }),
       ESTIMATED_CHARS,
-      { max_tokens: qCount * 400 + 1000 },
+      { max_tokens: qCount * 350 + 1000 },
     );
 
     const parsed = JSON.parse(cleanMarkdownJSON(raw));
 
     if (!Array.isArray(parsed.questionFeedback)) parsed.questionFeedback = [];
     while (parsed.questionFeedback.length < qCount) {
-      parsed.questionFeedback.push({
-        appropriateness: 0,
-        improvedAnswer: '',
-        followUpQuestions: [],
-        comment: '',
-      });
+      parsed.questionFeedback.push({ appropriateness: 0, improvedAnswer: '', comment: '' });
     }
 
+    // 2단계: llama로 꼬리질문 병렬 생성 (75~95%)
+    send({ type: 'progress', progress: 75, step: '꼬리질문 생성 중...' });
+    const allFollowUps = await generateReportFollowUps(questions, answers, department, req.body.jobRole || '');
+    send({ type: 'progress', progress: 95 });
+
+    // 3단계: 병합
     parsed.questionFeedback = parsed.questionFeedback.map((fb, i) => ({
       ...fb,
+      followUpQuestions: allFollowUps[i] || [],
       lengthEval: lengthEvals[i] ?? '적절',
     }));
 
@@ -612,10 +627,11 @@ app.get('/health', (_, res) => res.json({ ok: true }));
 const PORT = Number(process.env.PORT) || 5050;
 app.listen(PORT, async () => {
   console.log(`AI pipeline server on port ${PORT}`);
-  console.log(`LLM 서버: ${MLX_SERVER_URL} (Ollama) | 모델: ${MLX_MODEL}`);
+  console.log(`[llama] ${LLAMA_SERVER_URL} | 모델: ${LLAMA_MODEL}`);
+  console.log(`[gemma] ${GEMMA_SERVER_URL} | 모델: ${GEMMA_MODEL}`);
   try {
     console.log('LLM 서버 연결 확인 중...');
-    await callMLX('안녕');
+    await callMLX(gemmaClient, GEMMA_MODEL, '안녕');
     console.log('LLM 서버 연결 완료');
   } catch (e) {
     console.warn(`LLM 서버 연결 실패 (Ollama가 실행 중인지 확인):`, e.message);
