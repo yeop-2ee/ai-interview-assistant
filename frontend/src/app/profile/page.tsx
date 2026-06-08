@@ -248,9 +248,6 @@ export default function ProfilePage() {
                           {scoreLabel(r.overallScore)}
                         </span>
                       </div>
-                      {r.title && r.title !== "혼합 면접" && (
-                        <p className="text-[12px] text-[#9ca3af] truncate">{r.title}</p>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-1 flex-shrink-0">
