@@ -237,7 +237,7 @@ function ReportContent() {
     if (!mainRef.current) return;
     setDownloading(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
+      const domtoimage = (await import("dom-to-image-more")).default;
       const { default: jsPDF } = await import("jspdf");
 
       const node = mainRef.current;
@@ -246,29 +246,32 @@ function ReportContent() {
       const hiddenEls = node.querySelectorAll<HTMLElement>(".pdf-hidden");
       hiddenEls.forEach((el) => { el.style.visibility = "hidden"; });
 
-      const canvas = await html2canvas(node, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#f8f9fc",
-        logging: false,
+      const dataUrl = await domtoimage.toPng(node, {
         width: node.scrollWidth,
         height: node.scrollHeight,
-        windowWidth: node.scrollWidth,
-        windowHeight: node.scrollHeight,
-        ignoreElements: (el) => el.classList.contains("pdf-hidden"),
+        style: {
+          width: `${node.scrollWidth}px`,
+          height: `${node.scrollHeight}px`,
+        },
+        bgcolor: "#f8f9fc",
+        scale: 2,
+        filter: (node: Node) => !(node as Element).classList?.contains("pdf-hidden"),
       });
 
       // 숨긴 요소 복원
       hiddenEls.forEach((el) => { el.style.visibility = ""; });
+
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
 
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       const pageW = pdf.internal.pageSize.getWidth();   // 210mm
       const pageH = pdf.internal.pageSize.getHeight();  // 297mm
 
       // scale=2이므로 실제 px은 2배
-      const imgW = canvas.width;
-      const imgH = canvas.height;
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
       const mmPerPx = pageW / imgW;
       const pxPerPage = Math.round(pageH / mmPerPx);
       const pageCount = Math.ceil(imgH / pxPerPage);
@@ -286,7 +289,7 @@ function ReportContent() {
         const ctx = slice.getContext("2d")!;
         ctx.fillStyle = "#f8f9fc";
         ctx.fillRect(0, 0, slice.width, slice.height);
-        ctx.drawImage(canvas, 0, srcY, imgW, srcH, 0, 0, imgW, srcH);
+        ctx.drawImage(img, 0, srcY, imgW, srcH, 0, 0, imgW, srcH);
 
         const destH_mm = srcH * mmPerPx;
         pdf.addImage(slice.toDataURL("image/png"), "PNG", 0, 0, pageW, destH_mm);

@@ -5,6 +5,7 @@ declare module "dom-to-image-more" {
     style?: Partial<CSSStyleDeclaration>;
     quality?: number;
     bgcolor?: string;
+    scale?: number;
     imagePlaceholder?: string;
     cacheBust?: boolean;
     useCredentials?: boolean;

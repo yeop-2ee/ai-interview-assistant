@@ -91,13 +91,6 @@ const companyTypes = [
   { id: "foreign",    label: "외국계 기업",   desc: "글로벌 역량·영어 소통" },
 ];
 
-const experienceLevels = [
-  { id: "newcomer", label: "신입",      sub: "0년",     desc: "기초 역량·학습 의지·성장 가능성 중심 질문" },
-  { id: "junior",   label: "주니어",    sub: "1~3년",   desc: "실무 경험·문제 해결 방식 중심 질문" },
-  { id: "mid",      label: "미드레벨",  sub: "3~5년",   desc: "주도적 프로젝트 경험·기술 깊이 중심 질문" },
-  { id: "senior",   label: "시니어",    sub: "5년 이상", desc: "리더십·아키텍처 설계·멘토링 역량 중심 질문" },
-];
-
 
 const interviewerStyles = [
   { id: "friendly",  label: "부드러운", desc: "편안하게 유도하는 스타일" },
@@ -123,7 +116,6 @@ export default function SetupPage() {
   const [jobRole, setJobRole] = useState("");
   const [jobRoleInput, setJobRoleInput] = useState("");
   const [companyType, setCompanyType] = useState("");
-  const [experienceLevel, setExperienceLevel] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
 
   useEffect(() => {
@@ -137,7 +129,7 @@ export default function SetupPage() {
 
   const deptRoles = dept ? (DEPT_ROLES[dept] ?? []) : [];
 
-  const canProceed = !!dept && !!jobRole && !!companyType && !!experienceLevel;
+  const canProceed = !!dept && !!jobRole && !!companyType;
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
@@ -289,40 +281,9 @@ export default function SetupPage() {
             </div>
           </div>
 
-          {/* Experience Level */}
-          <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-            <SectionTitle num="04" title="경력" />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {experienceLevels.map((e) => (
-                <button
-                  key={e.id}
-                  onClick={() => setExperienceLevel(experienceLevel === e.id ? "" : e.id)}
-                  className={`text-left p-4 rounded-xl border transition-all ${
-                    experienceLevel === e.id
-                      ? "border-[#4f52e8] bg-[#eef0fd]"
-                      : "border-[#e4e7ef] bg-[#f8f9fc] hover:border-[#a5a7f3]"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className={`text-[14px] font-semibold ${experienceLevel === e.id ? "text-[#4f52e8]" : "text-[#0d1035]"}`}>{e.label}</span>
-                    {experienceLevel === e.id && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#4f52e8] bg-white rounded-md px-1.5 py-0.5 border border-[#c7d2fe]">
-                        <IconCheck className="w-2.5 h-2.5" /> 선택됨
-                      </span>
-                    )}
-                  </div>
-                  <div className={`text-[11px] font-medium mb-1 ${experienceLevel === e.id ? "text-[#818cf8]" : "text-[#c4c9d6]"}`}>
-                    {e.sub}
-                  </div>
-                  <div className="text-[11px] text-[#9ca3af] leading-tight">{e.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Style */}
           <div className="bg-white rounded-2xl border border-[#e4e7ef] p-6 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-            <SectionTitle num="05" title="면접관 스타일" hint="선택하지 않으면 랜덤으로 설정됩니다" />
+            <SectionTitle num="04" title="면접관 스타일" hint="선택하지 않으면 랜덤으로 설정됩니다" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {interviewerStyles.map((s) => (
                 <button
@@ -369,7 +330,6 @@ export default function SetupPage() {
                   department: dept,
                   jobRole,
                   companyType,
-                  experienceLevel,
                   interviewType: "mixed",
                   style: style || "random",
                 }));

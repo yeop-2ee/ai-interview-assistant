@@ -21,6 +21,7 @@ const QUESTION_QUALITY_LEVELS = [
 
 export default function SurveyEmailModal({ questions = [], answers = [], onClose }: Props) {
   const [step, setStep] = useState<"survey" | "email" | "done">("survey");
+  const [surveySkipped, setSurveySkipped] = useState(false);
 
   // 설문 상태
   const [purpose, setPurpose] = useState<string | null>(null);
@@ -56,6 +57,8 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
         });
       } catch { /* ignore */ }
       finally { setSurveySubmitting(false); }
+    } else {
+      setSurveySkipped(true);
     }
     setStep("email");
   };
@@ -217,12 +220,14 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
           {/* ── 2단계: 이메일 ── */}
           {step === "email" && (
             <div className="px-7 py-8 space-y-5">
-              <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-100 rounded-xl">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              {!surveySkipped && (
+                <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-100 rounded-xl">
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <p className="text-[12.5px] font-medium text-green-700">설문이 제출되었어요. 감사합니다!</p>
                 </div>
-                <p className="text-[12.5px] font-medium text-green-700">설문이 제출되었어요. 감사합니다!</p>
-              </div>
+              )}
 
               <div>
                 <p className="text-[13px] font-semibold text-[#1f2937] mb-1.5">면접 결과를 이메일로 받아볼까요?</p>
