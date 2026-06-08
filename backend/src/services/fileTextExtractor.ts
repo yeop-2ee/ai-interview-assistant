@@ -39,8 +39,15 @@ export async function extractTextFromFile(
     console.log("[HWP] tmpWithExt:", tmpWithExt, "exists:", fs.existsSync(tmpWithExt));
     console.log("[HWP] cmd:", cmd);
     try {
-      const output = execSync(cmd, { timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] });
-      console.log("[HWP] soffice output:", output?.toString());
+      try {
+        const result = execSync(cmd, { timeout: 60000 });
+        console.log("[HWP] soffice stdout:", result?.toString());
+      } catch (e: any) {
+        console.error("[HWP] soffice 실패 — stderr:", e.stderr?.toString());
+        console.error("[HWP] soffice 실패 — stdout:", e.stdout?.toString());
+        console.error("[HWP] soffice exit code:", e.status);
+        throw e;
+      }
       console.log("[HWP] pdfPath exists:", fs.existsSync(pdfPath));
       const buffer = fs.readFileSync(pdfPath);
       const data = await pdfParse(buffer);
