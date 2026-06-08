@@ -31,7 +31,8 @@ export async function extractTextFromFile(
     // multer가 확장자 없이 저장하므로 LibreOffice 포맷 인식을 위해 확장자 붙여 복사
     const tmpWithExt = `${filePath}${ext}`;
     fs.copyFileSync(filePath, tmpWithExt);
-    const pdfPath = path.join(outDir, `${path.basename(filePath)}${ext}.pdf`);
+    // LibreOffice는 입력파일 확장자를 .pdf로 교체해서 저장 (e.g. abc.hwp → abc.pdf)
+    const pdfPath = path.join(outDir, `${path.basename(filePath)}.pdf`);
     try {
       execSync(`"${SOFFICE}" --headless --convert-to pdf --outdir "${outDir}" "${tmpWithExt}"`, {
         timeout: 60000,
