@@ -421,14 +421,21 @@ app.post('/generate/questions', async (req, res) => {
       questions = [...commonQs, ...jobQs];
     }
 
-    // 서술문·빈 항목·너무 긴 질문 필터링
-    questions = questions.filter(q =>
-      typeof q === 'string' &&
-      q.trim().length > 5 &&
-      q.trim().length <= 120 &&
-      q.trim().endsWith('?') &&
-      !/[a-zA-Z]{5,}/.test(q) // 영어 단어 5자 이상 포함 시 제외 (한자·영문 오염 방지)
-    );
+    // 질문 정제: 앞뒤 공백 제거
+    questions = questions.map(q => (typeof q === 'string' ? q.trim() : q));
+
+    // 서술문·빈 항목·비정상 질문 필터링
+    questions = questions.filter(q => {
+      if (typeof q !== 'string') return false;
+      const t = q.trim();
+      if (t.length < 6 || t.length > 120) return false;
+      if (!t.endsWith('?')) return false;
+      // 한글·숫자·공백·기본 기호 외 문자(한자·베트남어·영어 긴 단어 등) 포함 시 제외
+      if (/[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F0-9\s.,!?()\-·~/%'"·]/.test(t)) return false;
+      // 영어 단어 4자 이상 연속 포함 시 제외
+      if (/[a-zA-Z]{4,}/.test(t)) return false;
+      return true;
+    });
 
     if (questions.length === 0) throw new Error('올바른 질문 배열을 생성하지 못했습니다.');
 
