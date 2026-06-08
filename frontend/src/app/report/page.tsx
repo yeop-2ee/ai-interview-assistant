@@ -141,8 +141,10 @@ function normalizeReport(raw: Record<string, unknown>): Report {
       followUpQuestions: ((f.followUpQuestions ?? f.followUpQuestion ?? f.follow_up_questions ?? []) as string[]).filter(Boolean),
       comment:         String(f.comment ?? f.피드백 ?? ""),
     })),
-    questions: (raw.questions as string[]) ?? [],
-    answers:   (raw.answers   as string[]) ?? [],
+    questions:           (raw.questions  as string[]) ?? [],
+    answers:             (raw.answers    as string[]) ?? [],
+    categories:          (raw.categories as string[]) ?? [],
+    followupParentLabels: (raw.followupParentLabels as Record<string, string>) ?? {},
   };
 }
 
@@ -166,6 +168,8 @@ type Report = {
   questionFeedback: QFeedback[];
   questions: string[];
   answers: string[];
+  categories: string[];
+  followupParentLabels: Record<string, string>;
 };
 
 const SCORE_ITEMS = [
@@ -465,16 +469,34 @@ function ReportContent() {
           <div className="divide-y divide-[#f0f2f8]">
             {report.questions.map((q, i) => {
               const fb = report.questionFeedback[i] ?? null;
-              const isCommon = i < 5;
+              const category = report.categories[i] ?? "";
+              const parentLabel = report.followupParentLabels?.[q];
+              const isFollowup = !!parentLabel;
+              const qLabel = isFollowup ? `${parentLabel}-1` : `Q${i + 1}`;
+              const badgeStyle: Record<string, string> = {
+                "소개":   "bg-purple-100 text-purple-600",
+                "공통":   "bg-blue-100 text-blue-600",
+                "직무":   "bg-indigo-100 text-indigo-600",
+                "이력서": "bg-teal-100 text-teal-600",
+                "인성":   "bg-orange-100 text-orange-600",
+                "전공":   "bg-cyan-100 text-cyan-600",
+              };
+              const badgeClass = badgeStyle[category] ?? "bg-gray-100 text-gray-500";
               return (
-                <div key={i} className="px-4 sm:px-6 py-5 sm:py-6">
+                <div key={i} className={`px-4 sm:px-6 py-5 sm:py-6 ${isFollowup ? "bg-[#fafbff]" : ""}`}>
                   {/* 질문 */}
                   <div className="flex items-start gap-3 mb-4">
                     <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
-                      <span className="text-[11px] font-bold text-[#9ca3af] bg-[#f8f9fc] border border-[#e4e7ef] rounded-md px-1.5 py-0.5">Q{i + 1}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isCommon ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"}`}>
-                        {isCommon ? "공통" : "추가"}
+                      <span className={`text-[11px] font-bold bg-[#f8f9fc] border border-[#e4e7ef] rounded-md px-1.5 py-0.5 ${isFollowup ? "text-[#4f52e8]" : "text-[#9ca3af]"}`}>
+                        {qLabel}
                       </span>
+                      {isFollowup ? (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#eef0fd] text-[#4f52e8]">꼬리질문</span>
+                      ) : category && (
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeClass}`}>
+                          {category}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[14px] font-medium text-[#0d1035] leading-snug">{q}</p>
                   </div>

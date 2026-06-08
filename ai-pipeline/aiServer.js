@@ -554,7 +554,7 @@ app.post('/generate/report', async (req, res) => {
 
   // gemma 프롬프트: followUpQuestions 제외
   const questionFeedbackExample = questions.map((q, i) => {
-    return `    {"appropriateness": 60, "improvedAnswer": "Q${i + 1} 개선된 답변을 한국어로 2~3문장 작성", "comment": "Q${i + 1} 종합 피드백을 한국어로 2문장 이상 작성"}`;
+    return `    {"appropriateness": 45, "improvedAnswer": "Q${i + 1}에 대해 지원자가 실제로 말할 수 있는 개선된 답변을 1인칭으로 2~3문장 작성. '~하면 좋겠다' 같은 설명 금지, 바로 답변 본문만 작성", "comment": "Q${i + 1} 종합 피드백을 한국어로 2문장 이상 구체적으로 작성"}`;
   }).join(',\n');
 
   const prompt = `당신은 한국어로만 대답하는 채용 면접 전문가입니다. 절대 영어를 사용하지 마세요. 모든 응답은 반드시 한국어로 작성하세요.
@@ -567,21 +567,29 @@ ${interviewStyle ? `면접관 스타일을 고려해 평가하세요. 예: 압�
 [면접 Q&A]
 ${qaText}
 
+[점수 기준 — 반드시 엄격하게 적용]
+- 0~30: 질문을 이해 못 하거나 답변이 거의 없음
+- 31~50: 답변했지만 두루뭉술하고 구체성·근거 없음 (대부분의 신입이 여기에 해당)
+- 51~65: 내용은 있으나 논리가 약하거나 깊이가 부족함
+- 66~80: 구체적 경험+논리+결과까지 갖춘 답변
+- 81~100: 탁월한 답변, 매우 드문 경우
+평균 답변의 기준점은 45점입니다. 좋게 봐주는 것은 금지입니다.
+
 응답 형식 (JSON만, 다른 텍스트 없음, 모든 문자열 값은 반드시 한국어):
 {
-  "overallScore": 60,
-  "scores": {"content": 60, "logic": 60, "delivery": 60, "reliability": 60, "likability": 60},
+  "overallScore": 45,
+  "scores": {"content": 45, "logic": 45, "delivery": 45, "reliability": 45, "likability": 45},
   "strengths": ["강점을 구체적으로 한국어로 작성", "강점2", "강점3"],
   "weaknesses": ["보완점을 구체적으로 한국어로 작성", "보완점2", "보완점3"],
   "precautions": ["실제 면접 시 주의사항을 한국어로 작성", "주의사항2", "주의사항3"],
-  "fitScores": {"job": 60, "org": 60, "company": 60},
+  "fitScores": {"job": 45, "org": 45, "company": 45},
   "fitComments": {"job": "직무 적합도 코멘트를 한국어로", "org": "조직 적합도 코멘트를 한국어로", "company": "기업 적합도 코멘트를 한국어로"},
   "questionFeedback": [
 ${questionFeedbackExample}
   ]
 }
 
-중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 모든 점수는 실제 답변 품질을 반영한 0~100 사이 정수입니다.`;
+중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 모든 점수는 위 기준을 엄격하게 적용한 0~100 사이 정수입니다.`;
 
   try {
     // 1단계: gemma로 리포트 본문 생성 (0~75%)

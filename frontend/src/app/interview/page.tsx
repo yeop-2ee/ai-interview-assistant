@@ -752,6 +752,10 @@ export default function InterviewPage() {
   const pendingFollowupRef = useRef<string | null | undefined>(null);
   // 꼬리질문으로 삽입된 질문 텍스트 추적 (무한 꼬리질문 방지)
   const followupTextsRef = useRef<Set<string>>(new Set());
+  // 원본 질문 수 (꼬리질문 삽입 후에도 고정)
+  const baseQuestionCountRef = useRef<number>(0);
+  // 꼬리질문 → 부모 질문 라벨 매핑 (리포트 Q{n}-1 표시용)
+  const followupParentLabelRef = useRef<Map<string, string>>(new Map());
   const [showCallDeviceModal, setShowCallDeviceModal] = useState(false);
 
   // ── 커스텀 훅 ──
@@ -785,6 +789,13 @@ export default function InterviewPage() {
   useEffect(() => { qIdxRef.current = qIdx; }, [qIdx]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // 원본 질문 수 고정 (꼬리질문 삽입 전 최초 1회)
+  useEffect(() => {
+    if (!questionsLoading && questions.length > 0 && baseQuestionCountRef.current === 0) {
+      baseQuestionCountRef.current = questions.length;
+    }
+  }, [questionsLoading, questions.length]);
 
   // 질문 수 부족 시 설정 화면으로 리다이렉트
   useEffect(() => {
@@ -841,6 +852,8 @@ export default function InterviewPage() {
               ...(event.data as object),
               questions: aiQuestions,
               answers: userAnswers,
+              categories: questionCategories,
+              followupParentLabels: Object.fromEntries(followupParentLabelRef.current),
             }));
             setReportReady(true);
           } else if (event.type === "error") {
@@ -1230,12 +1243,21 @@ export default function InterviewPage() {
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   // 답변 분석 중(sttLoading)에는 다음 질문 번호로 미리 표시, 종료 시엔 전체 수 표시
+  // 꼬리질문은 원본 질문 수에 포함하지 않음 (baseQuestionCountRef 기준)
+  const baseCount = baseQuestionCountRef.current || questionsRef.current.length;
+  const followupCount = followupTextsRef.current.size;
+  const mainQIdx = qIdx - Array.from(followupTextsRef.current).filter(
+    (_, fi) => Array.from(followupParentLabelRef.current.values()).length > fi
+  ).length;
   const displayQIdx = phase === "done"
-    ? questionsRef.current.length
+    ? baseCount
     : sttLoading && pendingAnswer !== null
-      ? Math.min(qIdx + 2, questionsRef.current.length)
-      : qIdx + 1;
-  const progress = Math.round((displayQIdx / questionsRef.current.length) * 100);
+      ? Math.min(qIdx + 2 - followupCount, baseCount)
+      : Math.min(qIdx + 1 - [...followupTextsRef.current].filter(fq => {
+          const fqIdx = questionsRef.current.indexOf(fq);
+          return fqIdx !== -1 && fqIdx <= qIdx;
+        }).length, baseCount);
+  const progress = Math.round((displayQIdx / baseCount) * 100);
   const currentQ = questionsRef.current[Math.min(qIdx, questionsRef.current.length - 1)];
   const currentCategory = questionCategories[qIdx] ?? (qIdx === 0 ? "소개" : "면접");
   const phaseLabel = currentCategory;
@@ -1347,7 +1369,7 @@ export default function InterviewPage() {
               </div>
               <span className="text-[11px] text-[#9ca3af] font-medium">
                 <span className={`mr-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${CATEGORY_STYLE[currentCategory] ?? "bg-gray-100 text-gray-500"}`}>{phaseLabel}</span>
-                {displayQIdx}/{questionsRef.current.length}
+                {displayQIdx}/{baseCount}
               </span>
             </div>
             <span className="font-mono text-[13px] font-semibold text-[#374151]">{fmtTime(elapsed)}</span>
@@ -1641,6 +1663,8 @@ export default function InterviewPage() {
                     // 꼬리질문 삽입
                     const followup = pendingFollowupRef.current;
                     if (followup && !followupTextsRef.current.has(currentQ)) {
+                      const parentLabel = `Q${qIdxRef.current + 1}`;
+                      followupParentLabelRef.current.set(followup, parentLabel);
                       const newQs = questionsRef.current.slice();
                       newQs.splice(qIdxRef.current + 1, 0, followup);
                       questionsRef.current = newQs;
