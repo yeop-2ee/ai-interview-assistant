@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { execSync } from "child_process";
 import mammoth from "mammoth";
@@ -6,8 +7,7 @@ import mammoth from "mammoth";
 const pdfModule = require("pdf-parse");
 const pdfParse = pdfModule.default || pdfModule;
 
-// pyhwp hwp5txt 경로: pip3 user install 기본 위치
-const HWP5TXT = process.env.HWP5TXT_PATH || "hwp5txt";
+const SOFFICE = process.env.SOFFICE_PATH || "soffice";
 
 export async function extractTextFromFile(
   filePath: string,
@@ -27,14 +27,21 @@ export async function extractTextFromFile(
   }
 
   if (ext === ".hwp" || ext === ".hwpx") {
-    // multer가 확장자 없이 저장하므로 hwp5txt 인식을 위해 확장자 붙여 복사
+    const outDir = os.tmpdir();
+    // multer가 확장자 없이 저장하므로 LibreOffice 포맷 인식을 위해 확장자 붙여 복사
     const tmpWithExt = `${filePath}${ext}`;
     fs.copyFileSync(filePath, tmpWithExt);
+    const pdfPath = path.join(outDir, `${path.basename(filePath)}${ext}.pdf`);
     try {
-      const text = execSync(`"${HWP5TXT}" "${tmpWithExt}"`, { timeout: 30000 }).toString();
-      return text.trim();
+      execSync(`"${SOFFICE}" --headless --convert-to pdf --outdir "${outDir}" "${tmpWithExt}"`, {
+        timeout: 60000,
+      });
+      const buffer = fs.readFileSync(pdfPath);
+      const data = await pdfParse(buffer);
+      return data.text.trim();
     } finally {
       fs.unlink(tmpWithExt, () => {});
+      fs.unlink(pdfPath, () => {});
     }
   }
 
