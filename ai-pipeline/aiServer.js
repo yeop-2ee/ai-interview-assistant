@@ -382,6 +382,20 @@ app.post('/generate/questions', async (req, res) => {
     );
     const commonQs = Array.isArray(commonPass.questions) ? commonPass.questions.slice(0, 2) : [];
 
+    // 질문 필터: 불량 항목 제거 (카테고리 추적과 함께)
+    const filterQuestion = (q) => {
+      if (typeof q !== 'string') return false;
+      const t = q.trim();
+      if (t.length < 6 || t.length > 150) return false;
+      if (!t.endsWith('?')) return false;
+      // 한자(CJK) 또는 베트남어 등 라틴 확장 특수문자 포함 시 제외
+      // (영어 tech 용어 git, API, React 등은 허용)
+      if (/[\u4E00-\u9FFF\u0100-\u024F\u0300-\u036F]/.test(t)) return false;
+      return true;
+    };
+
+    let taggedQs = []; // { q, cat } 형태로 카테고리 함께 추적
+
     if (interviewType === 'resume' || interviewType === 'mixed') {
       // 패스 2: 직무 3개 (25~65%)
       sendProgress(25, '직무 질문 생성 중...');
@@ -406,7 +420,11 @@ app.post('/generate/questions', async (req, res) => {
         resumeQs = Array.isArray(pass3.questions) ? pass3.questions.slice(0, 2) : [];
       }
 
-      questions = [...commonQs, ...jobQs, ...resumeQs];
+      taggedQs = [
+        ...commonQs.map(q => ({ q: typeof q === 'string' ? q.trim() : q, cat: '공통' })),
+        ...jobQs.map(q => ({ q: typeof q === 'string' ? q.trim() : q, cat: '직무' })),
+        ...resumeQs.map(q => ({ q: typeof q === 'string' ? q.trim() : q, cat: '이력서' })),
+      ];
 
     } else {
       // 패스 2: 직무/인성 3개 (25~95%)
@@ -418,46 +436,20 @@ app.post('/generate/questions', async (req, res) => {
         220,
       );
       const jobQs = Array.isArray(pass2.questions) ? pass2.questions.slice(0, 3) : [];
-      questions = [...commonQs, ...jobQs];
-    }
-
-    // 질문 정제: 앞뒤 공백 제거
-    questions = questions.map(q => (typeof q === 'string' ? q.trim() : q));
-
-    // 서술문·빈 항목·비정상 질문 필터링
-    questions = questions.filter(q => {
-      if (typeof q !== 'string') return false;
-      const t = q.trim();
-      if (t.length < 6 || t.length > 120) return false;
-      if (!t.endsWith('?')) return false;
-      // 한글·숫자·공백·기본 기호 외 문자(한자·베트남어·영어 긴 단어 등) 포함 시 제외
-      if (/[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F0-9\s.,!?()\-·~/%'"·]/.test(t)) return false;
-      // 영어 단어 4자 이상 연속 포함 시 제외
-      if (/[a-zA-Z]{4,}/.test(t)) return false;
-      return true;
-    });
-
-    if (questions.length === 0) throw new Error('올바른 질문 배열을 생성하지 못했습니다.');
-
-    let categories;
-    if (interviewType === 'resume' || interviewType === 'mixed') {
-      const commonCount = Math.min(2, questions.length);
-      const jobCount = Math.min(3, questions.length - commonCount);
-      const resumeCount = questions.length - commonCount - jobCount;
-      categories = [
-        ...Array(commonCount).fill('공통'),
-        ...Array(jobCount).fill('직무'),
-        ...Array(resumeCount).fill('이력서'),
-      ];
-    } else {
-      const commonCount = Math.min(2, questions.length);
-      const jobCount = questions.length - commonCount;
       const label = interviewType === 'personality' ? '인성' : '전공';
-      categories = [
-        ...Array(commonCount).fill('공통'),
-        ...Array(jobCount).fill(label),
+      taggedQs = [
+        ...commonQs.map(q => ({ q: typeof q === 'string' ? q.trim() : q, cat: '공통' })),
+        ...jobQs.map(q => ({ q: typeof q === 'string' ? q.trim() : q, cat: label })),
       ];
     }
+
+    // 카테고리 추적하며 필터링
+    const filteredTagged = taggedQs.filter(({ q }) => filterQuestion(q));
+
+    if (filteredTagged.length === 0) throw new Error('올바른 질문 배열을 생성하지 못했습니다.');
+
+    questions = filteredTagged.map(({ q }) => q);
+    const categories = filteredTagged.map(({ cat }) => cat);
 
     send({ type: 'progress', progress: 100, step: '마무리 중...' });
     send({ type: 'done', questions, categories });
