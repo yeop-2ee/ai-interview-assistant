@@ -34,16 +34,20 @@ export async function extractTextFromFile(
     fs.copyFileSync(absFilePath, tmpWithExt);
     // LibreOffice는 입력파일 확장자를 .pdf로 교체해서 저장 (e.g. abc.hwp → abc.pdf)
     const pdfPath = path.join(outDir, `${path.basename(absFilePath)}.pdf`);
+    // 변환별 독립 프로필 디렉터리 (동시 요청 시 잠금 충돌 방지)
+    const profileDir = path.join(outDir, `lo_profile_${process.pid}_${Date.now()}`);
     try {
-      execSync(`"${SOFFICE}" --headless --convert-to pdf --outdir "${outDir}" "${tmpWithExt}"`, {
-        timeout: 60000,
-      });
+      execSync(
+        `"${SOFFICE}" --headless --norestore -env:UserInstallation=file://${profileDir} --convert-to pdf --outdir "${outDir}" "${tmpWithExt}"`,
+        { timeout: 60000 },
+      );
       const buffer = fs.readFileSync(pdfPath);
       const data = await pdfParse(buffer);
       return data.text.trim();
     } finally {
       fs.unlink(tmpWithExt, () => {});
       fs.unlink(pdfPath, () => {});
+      fs.rm(profileDir, { recursive: true, force: true }, () => {});
     }
   }
 
