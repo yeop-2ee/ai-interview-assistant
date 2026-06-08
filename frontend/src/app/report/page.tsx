@@ -201,10 +201,9 @@ function ReportContent() {
     const dept = settings.department || "";
     const jobRole = settings.jobRole || "";
     const company = COMPANY_LABEL[settings.companyType] || settings.companyType || "";
-    const type = TYPE_LABEL[settings.interviewType] || "혼합 면접";
     const style = STYLE_LABEL[settings.style] || "";
     const date = new Date().toISOString().slice(0, 10);
-    setSubtitle([dept, jobRole, company, type, style && `${style} 면접관`, date].filter(Boolean).join(" · "));
+    setSubtitle([dept, jobRole, company, style && `${style} 면접관`, date].filter(Boolean).join(" · "));
 
     const raw = sessionStorage.getItem("interviewReport");
     if (raw) {

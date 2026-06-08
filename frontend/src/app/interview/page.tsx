@@ -1326,7 +1326,7 @@ export default function InterviewPage() {
               {phase !== "done" && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
               {phase === "done" ? "면접 종료" : "면접 진행 중"}
             </div>
-            <span className="text-[#9ca3af] text-[12px] hidden sm:block">컴퓨터소프트웨어과 · 혼합 면접</span>
+            <span className="text-[#9ca3af] text-[12px] hidden sm:block">{interviewStyle ? `${interviewStyle} 면접관` : "AI 면접"}</span>
           </div>
 
           <div className="flex items-center gap-5">
