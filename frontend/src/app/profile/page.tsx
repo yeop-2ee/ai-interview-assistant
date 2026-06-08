@@ -240,15 +240,17 @@ export default function ProfilePage() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[14px] font-semibold text-[#0d1035] truncate">{r.title}</span>
+                        <span className="text-[14px] font-semibold text-[#0d1035] truncate">
+                          {new Date(r.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })} 면접
+                        </span>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
                           style={{ color: scoreColor(r.overallScore), background: scoreBg(r.overallScore) }}>
                           {scoreLabel(r.overallScore)}
                         </span>
                       </div>
-                      <p className="text-[12px] text-[#9ca3af]">
-                        {new Date(r.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
-                      </p>
+                      {r.title && r.title !== "혼합 면접" && (
+                        <p className="text-[12px] text-[#9ca3af] truncate">{r.title}</p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1 flex-shrink-0">

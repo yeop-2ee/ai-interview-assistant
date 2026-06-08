@@ -12,9 +12,7 @@ const STYLE_LABEL: Record<string, string> = {
   friendly: "부드러운", pressure: "압박형", professor: "교수형",
   practical: "실무형", random: "랜덤",
 };
-const TYPE_LABEL: Record<string, string> = {
-  personality: "인성 면접", major: "전공 면접", resume: "자소서 면접", mixed: "혼합 면접",
-};
+
 const COMPANY_LABEL: Record<string, string> = {
   대기업: "대기업", 중견기업: "중견기업", 중소기업: "중소기업",
   스타트업: "스타트업", 공기업: "공기업", 외국계: "외국계",
@@ -226,7 +224,7 @@ function ReportContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          title: TYPE_LABEL[settings.interviewType] || "혼합 면접",
+          title: [settings.department, settings.jobRole].filter(Boolean).join(" / ") || "면접 기록",
           overallScore: overall,
           scores: report?.scores ?? {},
           questions: report ? report.questions.map((q, i) => ({
