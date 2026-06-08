@@ -109,6 +109,26 @@ const LEVELS        = ['newcomer', 'junior', 'mid', 'senior'];
 const STYLES        = ['friendly', 'pressure', 'professor', 'practical'];
 const TYPES         = ['major', 'personality'];
 
+// 실제 면접에서 자주 나오는 "짧고 직접적인" 질문 유형 — 시나리오형 위주였던 데이터셋의 균형을 맞추기 위해 추가
+const MAJOR_DIRECT_TYPES = [
+  (keyword, roleLabel) => `"${keyword}"의 핵심 개념·동작 원리·장단점을 짧고 명확하게 설명해달라는 단답형 지식 확인 질문 (예: "OO가 무엇인지 설명해주실 수 있나요?", "OO와 OO의 차이가 무엇인가요?")`,
+  (keyword, roleLabel) => `${roleLabel} 실무에서 자주 비교되는 두 기술·도구·자료구조·개념 중 하나를 골라 차이를 짧게 설명해달라는 비교형 질문 (예: "큐와 스택의 차이가 무엇인가요?", "REST와 GraphQL의 차이가 무엇인가요?")`,
+  (keyword, roleLabel) => `이력서·포트폴리오에 적힌 프로젝트나 기능 중 하나를 콕 짚어 "지금까지 어떤 기능을 만들어봤는지", "그걸 어떤 식으로 구현했는지" 구체적으로 설명을 요구하는 경험 구체화형 질문`,
+  (keyword, roleLabel) => `생성형 AI(ChatGPT, Claude, Cursor 등)를 실무·학습에 어떻게 활용해봤는지, 혹은 AI에게 특정 작업을 어떻게 단계적으로 지시하고 결과를 검증할지 묻는 질문`,
+  (keyword, roleLabel) => `${roleLabel} 분야가 앞으로(예: 10년 뒤) 어떻게 변화할 것 같은지 본인의 생각을 짧게 묻는 미래 전망형 질문`,
+];
+const PERSONALITY_DIRECT_TYPES = [
+  () => `간단한 자기소개를 요청하는 질문`,
+  () => `"성적관리 프로그램을 만든다면 어떻게 설계할 것인지 처음부터 말해달라"처럼, 익숙한 주제를 예로 들어 문제 해결·설계 사고 과정을 처음부터 풀어서 설명해보라는 질문`,
+  () => `지금까지 진행한 프로젝트나 만들어본 기능 중 기억에 남는 것이 무엇인지 묻는 경험 구체화형 질문`,
+  () => `앞으로 어떤 개발자가 되고 싶은지, 혹은 10년 뒤 개발자의 업무 환경이 어떻게 달라질 것 같은지 본인의 생각을 묻는 질문`,
+  () => `생성형 AI 도구(ChatGPT, Claude, Cursor 등)를 사용해본 경험이 있는지, 무엇을 어떻게 활용했는지 묻는 질문`,
+];
+function pickDirectType(pool, keyword, roleLabel) {
+  const fn = pool[Math.floor(Math.random() * pool.length)];
+  return fn(keyword, roleLabel);
+}
+
 // ── 질문 생성 프롬프트 빌더 (기존) ───────────────────────────────────────
 function buildBaseContext(department, jobRole, companyType, experienceLevel, style) {
   return {
@@ -124,6 +144,10 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
   const target    = jobRole ? `${department} 학과 / ${jobRole}` : department;
   const roleLabel = jobRole || department;
   const keyword   = getRandomKeyword(department, jobRole);
+  const directType = pickDirectType(
+    interviewType === 'personality' ? PERSONALITY_DIRECT_TYPES : MAJOR_DIRECT_TYPES,
+    keyword, roleLabel
+  );
 
   let p = `당신은 한국어로만 대답하는 채용 전문 면접관입니다.\n`;
   p += `면접관 역할: ${persona.role}\n`;
@@ -144,7 +168,7 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
     p += `${roleLabel} 직무 면접에서 지원자의 실제 업무 태도와 협업 방식을 검증하는 인성 질문 3개를 작성하세요.\n`;
     if (companyContext) p += `[회사 맥락] ${companyContext}\n`;
     p += `${depthGuide}\n\n`;
-    p += `질문 1 — 의견 충돌 또는 우선순위 갈등 상황: 어떻게 설득하고 조율했는지 구체적 경험을 묻는 질문.\n`;
+    p += `질문 1 — ${directType}. 상황 설정 없이 곧장 묻는 짧고 직접적인 질문으로 작성하세요.\n`;
     p += `질문 2 — 예상치 못한 장애·일정 압박·리소스 부족 상황: 실제로 어떻게 대응했는지 묻는 질문.`;
     if (companyContext) p += ` 위에서 제시한 [회사 맥락]의 현실적 압박 상황을 질문 안에 반영하세요.`;
     p += `\n`;
@@ -152,11 +176,10 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
     p += `작성 규칙:\n`;
     p += `- 각 질문은 하나의 완결된 문장, 물음표(?)는 끝에 하나만.\n`;
     p += `- 각 질문은 한 문장, 70자 이내로 작성하세요.\n`;
-    p += `- 상황 묘사는 짧은 구(예: '성능 저하 발생 시', '기술 부채 상황에서')로만 — 긴 배경 설명 절대 금지.\n`;
-    p += `- 좋은 예: "DB 쿼리 성능 저하 시 원인을 어떻게 파악하셨나요?"\n`;
-    p += `- 나쁜 예: "배포 후 API가 2배 느려지고 레거시와 신규 기능이 얽혀있는 상황에서 어떻게..." (금지)\n`;
-    p += `- 추상적 질문 금지 — 반드시 구체적인 상황을 먼저 설정하고 그 상황에서의 대응을 묻는 형식.\n`;
-    p += `- 어미: "~셨나요?", "~있으신가요?", "~하셨습니까?" 등 자연스러운 존댓말. "~이에요?", "~어떤가요?" 금지.\n`;
+    p += `- 질문 2, 3: 상황 묘사는 짧은 구(예: '성능 저하 발생 시', '기술 부채 상황에서')로만 — 긴 배경 설명 절대 금지. 추상적 질문 금지, 반드시 구체적인 상황을 먼저 설정하고 그 상황에서의 대응을 묻는 형식.\n`;
+    p += `  좋은 예: "DB 쿼리 성능 저하 시 원인을 어떻게 파악하셨나요?" / 나쁜 예: "배포 후 API가 2배 느려지고 레거시와 신규 기능이 얽혀있는 상황에서 어떻게..." (금지)\n`;
+    p += `- 질문 1: 시나리오·상황 설정 없이 곧장 묻는 짧고 직접적인 질문. "~란 무엇인가요", "~해보신 적 있나요" 같은 단도직입적 어투도 허용됩니다.\n`;
+    p += `- 어미: "~셨나요?", "~있으신가요?", "~하셨습니까?", "~무엇인가요?", "~해주실 수 있나요?" 등 자연스러운 존댓말. "~이에요?", "~어떤가요?" 금지.\n`;
     p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
     p += `{"questions":["인성질문1","인성질문2","인성질문3"]}`;
@@ -173,18 +196,17 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
     if (companyContext) p += `[회사 맥락] ${companyContext}\n`;
     p += `\n${depthGuide}\n\n`;
     p += `이번 질문에서 "${keyword}" 관련 역량을 반드시 한 개 이상 포함하세요.\n\n`;
-    p += `질문 1 — 핵심 개념 실무 적용: "~란 무엇입니까" 금지. 실제 사용할 때 어떤 판단을 했는지, 어떤 문제가 생겼는지를 묻는 상황 기반 질문.\n`;
+    p += `질문 1 — ${directType}. 시나리오·상황 설정 없이 곧장 묻는 짧고 직접적인 질문으로 작성하세요.\n`;
     p += `질문 2 — 직무상 문제 상황 대응: ${roleLabel}에서 실제로 발생하는 구체적 문제 상황을 제시하고 어떻게 접근했는지 판단력을 검증.\n`;
     p += `질문 3 — 트레이드오프 판단: 두 가지 방식 중 하나를 선택해야 하는 상황을 제시하고, 어떤 기준으로 결정하겠는지 사고 과정을 보는 질문.\n`;
     if (companyContext) p += `위에서 제시한 [회사 맥락]의 현실적 압박 상황을 질문 2 또는 3에 구체적으로 반영하세요.\n`;
     p += `\n작성 규칙:\n`;
     p += `- 각 질문은 하나의 완결된 문장, 물음표(?)는 끝에 하나만.\n`;
     p += `- 각 질문은 한 문장, 70자 이내로 작성하세요.\n`;
-    p += `- 상황 묘사는 짧은 구(예: '성능 저하 발생 시', '기술 부채 상황에서')로만 — 긴 배경 설명 절대 금지.\n`;
-    p += `- 좋은 예: "DB 쿼리 성능 저하 시 원인을 어떻게 파악하셨나요?"\n`;
-    p += `- 나쁜 예: "배포 후 API가 2배 느려지고 레거시와 신규 기능이 얽혀있는 상황에서 어떻게..." (금지)\n`;
-    p += `- 상황을 먼저 제시하고 그 상황에서의 판단·경험을 묻는 형식.\n`;
-    p += `- 어미: "~셨나요?", "~있으신가요?", "~하시겠습니까?", "~하셨습니까?" 등 자연스러운 존댓말. "~이에요?", "~어떤가요?" 금지.\n`;
+    p += `- 질문 2, 3: 상황을 먼저 제시하고 그 상황에서의 판단·경험을 묻는 형식. 상황 묘사는 짧은 구(예: '성능 저하 발생 시', '기술 부채 상황에서')로만 — 긴 배경 설명 절대 금지.\n`;
+    p += `  좋은 예: "DB 쿼리 성능 저하 시 원인을 어떻게 파악하셨나요?" / 나쁜 예: "배포 후 API가 2배 느려지고 레거시와 신규 기능이 얽혀있는 상황에서 어떻게..." (금지)\n`;
+    p += `- 질문 1: 시나리오·상황 설정 없이 곧장 묻는 짧고 직접적인 질문. "~란 무엇인가요", "~의 차이가 무엇인가요", "~해보신 적 있나요" 같은 단도직입적 어투도 허용됩니다.\n`;
+    p += `- 어미: "~셨나요?", "~있으신가요?", "~하시겠습니까?", "~하셨습니까?", "~무엇인가요?", "~해주실 수 있나요?" 등 자연스러운 존댓말. "~이에요?", "~어떤가요?" 금지.\n`;
     p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
     p += `{"questions":["직무질문1","직무질문2","직무질문3"]}`;
