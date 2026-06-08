@@ -178,6 +178,20 @@ function buildBaseContext(department, jobRole, companyType, experienceLevel, sty
   };
 }
 
+// 모든 질문 프롬프트에 공통으로 적용되는 출력 규칙
+function commonQuestionRules(persona) {
+  return (
+    `[출력 규칙 — 반드시 준수]\n` +
+    `- 반드시 한국어로만 작성. 영어·한자·기타 외국어 절대 금지.\n` +
+    `- 각 질문은 한 문장, 물음표(?)로 끝낼 것.\n` +
+    `- 질문은 30자 이상 60자 이내로 간결하게.\n` +
+    `- 예/아니오로 답할 수 있는 닫힌 질문 절대 금지.\n` +
+    `- 지원자가 구체적으로 설명하거나 경험을 말하게 유도하는 개방형 질문.\n` +
+    `- 프로젝트명·회사명·서비스명 직접 언급 절대 금지.\n` +
+    `- 면접관 스타일(${persona.tone}) 어투 유지.\n`
+  );
+}
+
 function buildCommonPrompt(department, jobRole, companyType, experienceLevel, style) {
   const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
   const target = jobRole ? `${department} / ${jobRole}` : department;
@@ -190,14 +204,9 @@ function buildCommonPrompt(department, jobRole, companyType, experienceLevel, st
   if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
 
   p += `면접 질문 2개를 작성하세요.\n\n`;
-  p += `질문 1: 지원자가 어떤 개발 분야에 관심이 있고 앞으로 어떤 개발자가 되고 싶은지 설명하게 만드는 질문.\n`;
-  p += `질문 2: 팀 프로젝트에서 git 브랜치 전략이나 코드 컨벤션을 어떻게 정하고 관리했는지 설명하게 만드는 질문.\n\n`;
-  p += `[필수 규칙]\n`;
-  p += `- 반드시 물음표(?)로 끝나는 의문문.\n`;
-  p += `- 예/아니오로 답할 수 있는 닫힌 질문 절대 금지 (예: ~있으셨나요?, ~알고 계신가요?, ~관심 있으신가요?).\n`;
-  p += `- 지원자가 구체적으로 설명하거나 경험을 말하게 유도하는 개방형 질문.\n`;
-  p += `- 어미: "~말씀해 주시겠어요?", "~어떻게 진행하셨나요?", "~어떤 방식을 사용하셨나요?" 등.\n`;
-  p += `- 면접관 스타일(${persona.tone}) 어투 유지.\n`;
+  p += `질문 1: 어떤 개발 분야에 관심이 있고 앞으로 어떤 개발자가 되고 싶은지 설명하게 만드는 질문.\n`;
+  p += `질문 2: 팀 프로젝트에서 git 브랜치 전략이나 코드 컨벤션을 어떻게 관리했는지 설명하게 만드는 질문.\n\n`;
+  p += commonQuestionRules(persona);
   p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
   p += `{"questions":["질문1?","질문2?"]}`;
   return p;
@@ -238,30 +247,20 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
 
     p += `${roleLabel} 직무 면접 인성 질문 3개를 작성하세요.\n`;
     p += `${personalityDepthGuide}\n\n`;
-    p += `질문 1: 팀 프로젝트에서 의견 충돌이나 갈등이 생겼을 때 어떻게 해결했는지 경험을 말하게 하는 질문.\n`;
-    p += `질문 2: 예상치 못한 어려움이나 실패를 겪었을 때 어떻게 대처했는지 경험을 말하게 하는 질문.\n`;
+    p += `질문 1: 팀 의견 충돌이나 갈등 상황에서 어떻게 해결했는지 경험을 말하게 하는 질문.\n`;
+    p += `질문 2: 예상치 못한 어려움이나 실패를 어떻게 대처했는지 경험을 말하게 하는 질문.\n`;
     p += `질문 3: 스스로 결정을 내리거나 방향을 바꿨던 경험을 말하게 하는 질문.\n\n`;
-    p += `[필수 규칙]\n`;
-    p += `- 반드시 물음표(?)로 끝나는 의문문.\n`;
-    p += `- 예/아니오로 답할 수 있는 닫힌 질문 절대 금지.\n`;
-    p += `- 지원자가 구체적인 경험과 대처 방법을 설명하게 유도하는 개방형 질문.\n`;
-    p += `- 어미: "~어떻게 하셨나요?", "~말씀해 주시겠어요?", "~어떤 방식으로 해결하셨나요?" 등.\n`;
-    p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
+    p += commonQuestionRules(persona);
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
     p += `{"questions":["질문1?","질문2?","질문3?"]}`;
   } else if (experienceLevel === 'newcomer') {
     // 신입: CS 기초 + 시스템 설계 + 트렌드
     p += `${roleLabel} 분야 신입 지원자 면접 질문 3개를 작성하세요.\n\n`;
-    p += `질문 1: ${department} 관련 CS·전공 기초 개념(자료구조, 네트워크, 언어 특성, 프레임워크 차이 등)을 설명하게 만드는 질문.\n`;
+    p += `질문 1: ${department} 관련 CS·전공 기초 개념을 설명하게 만드는 질문. (자료구조, 네트워크, 언어 특성, 프레임워크 차이 등)\n`;
     p += `질문 2: 간단한 프로그램이나 기능을 처음부터 어떻게 설계할지 접근 방법을 설명하게 만드는 질문.\n`;
-    p += `질문 3: 생성형 AI·개발 도구 활용 경험이나 10년 뒤 개발 환경이 어떻게 변할지 의견을 말하게 만드는 질문.\n\n`;
-    p += `[필수 규칙]\n`;
-    p += `- 반드시 물음표(?)로 끝나는 의문문.\n`;
-    p += `- 예/아니오로 답할 수 있는 닫힌 질문 절대 금지 (예: ~알고 계신가요?, ~해보셨나요?, ~있으신가요?).\n`;
-    p += `- 지원자가 개념을 설명하거나 의견을 구체적으로 말하게 유도하는 개방형 질문.\n`;
-    p += `- 어미: "~무엇인지 설명해 주시겠어요?", "~어떻게 접근하시겠어요?", "~어떻게 생각하시나요?" 등.\n`;
+    p += `질문 3: AI 도구 활용 경험이나 10년 뒤 개발 환경 변화에 대한 의견을 말하게 만드는 질문.\n\n`;
+    p += commonQuestionRules(persona);
     p += `- 신입이므로 깊은 실무 경험 전제 금지.\n`;
-    p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
     p += `{"questions":["질문1?","질문2?","질문3?"]}`;
   } else {
@@ -274,18 +273,14 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
       depthGuide = `시니어이므로: 시스템 설계 의사결정, 조직 기술 방향 제시, 팀 리딩·멘토링, 복잡한 기술 선택 경험을 물으세요.`;
     }
 
-    p += `${roleLabel} 직무의 핵심 기술 역량을 검증하는 면접 질문 3개를 작성하세요.\n`;
+    p += `${roleLabel} 직무 면접 질문 3개를 작성하세요.\n`;
     p += `${depthGuide}\n\n`;
-    p += `질문 1 — 핵심 개념의 실무 적용 판단 경험.\n`;
-    p += `질문 2 — 기술적 문제(성능, 장애, 데이터 등)를 해결한 경험.\n`;
-    p += `질문 3 — 두 기술·방식 중 하나를 선택한 판단 기준 (정답 없는 열린 질문).\n\n`;
-    p += `작성 규칙:\n`;
-    p += `- 질문은 짧고 명확하게. 한 문장, 물음표(?)는 끝에 하나만.\n`;
-    p += `- 질문 안에 상황 설명이나 배경 서술 넣지 말 것 — 핵심 질문만 간결하게.\n`;
-    p += `- 어미: "~셨나요?", "~있으신가요?", "~하셨습니까?" 등 자연스러운 존댓말.\n`;
-    p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
+    p += `질문 1: 핵심 기술 개념을 실무에 어떻게 적용했는지 설명하게 만드는 질문.\n`;
+    p += `질문 2: 기술적 문제를 어떻게 해결했는지 경험을 말하게 만드는 질문.\n`;
+    p += `질문 3: 두 기술·방식 중 하나를 선택한 이유를 설명하게 만드는 질문.\n\n`;
+    p += commonQuestionRules(persona);
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
-    p += `{"questions":["직무질문1","직무질문2","직무질문3"]}`;
+    p += `{"questions":["질문1?","질문2?","질문3?"]}`;
   }
   return p;
 }
@@ -316,15 +311,10 @@ function buildResumePrompt(department, jobRole, companyType, experienceLevel, st
     previousQuestions.forEach(q => p += `- ${q}\n`);
     p += `\n`;
   }
-  p += `질문 1: 이력서의 특정 프로젝트·수상·경험에서 어떤 역할을 담당했고 어떤 기술적 판단을 내렸는지 설명하게 만드는 질문.\n`;
+  p += `질문 1: 이력서의 특정 프로젝트·경험에서 어떤 역할을 담당했고 어떤 기술적 판단을 내렸는지 설명하게 만드는 질문.\n`;
   p += `질문 2: 이력서의 다른 경험에서 사용한 기술 스택을 왜 선택했는지 또는 아쉬웠던 점이 무엇인지 설명하게 만드는 질문.\n\n`;
-  p += `[필수 규칙]\n`;
-  p += `- 반드시 물음표(?)로 끝나는 의문문.\n`;
-  p += `- 예/아니오로 답할 수 있는 닫힌 질문 절대 금지 (예: ~하셨나요?, ~있으신가요?).\n`;
-  p += `- 지원자가 구체적으로 설명하게 유도하는 개방형 질문.\n`;
-  p += `- 이력서와 무관한 일반 질문 금지. 프로젝트명·회사명 직접 언급 금지.\n`;
-  p += `- 어미: "~말씀해 주시겠어요?", "~어떻게 접근하셨나요?", "~이유가 무엇인가요?" 등.\n`;
-  p += `- 면접관 성격(${persona.tone}) 어투 유지.\n`;
+  p += commonQuestionRules(persona);
+  p += `- 이력서와 무관한 일반 질문 금지.\n`;
   p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
   p += `{"questions":["질문1?","질문2?"]}`;
   return p;
@@ -431,8 +421,14 @@ app.post('/generate/questions', async (req, res) => {
       questions = [...commonQs, ...jobQs];
     }
 
-    // 물음표 없는 서술문·빈 항목 필터링
-    questions = questions.filter(q => typeof q === 'string' && q.trim().length > 5 && q.trim().endsWith('?'));
+    // 서술문·빈 항목·너무 긴 질문 필터링
+    questions = questions.filter(q =>
+      typeof q === 'string' &&
+      q.trim().length > 5 &&
+      q.trim().length <= 120 &&
+      q.trim().endsWith('?') &&
+      !/[a-zA-Z]{5,}/.test(q) // 영어 단어 5자 이상 포함 시 제외 (한자·영문 오염 방지)
+    );
 
     if (questions.length === 0) throw new Error('올바른 질문 배열을 생성하지 못했습니다.');
 
