@@ -15,6 +15,10 @@ const STYLE_LABEL: Record<string, string> = {
 const TYPE_LABEL: Record<string, string> = {
   personality: "인성 면접", major: "전공 면접", resume: "자소서 면접", mixed: "혼합 면접",
 };
+const COMPANY_LABEL: Record<string, string> = {
+  대기업: "대기업", 중견기업: "중견기업", 중소기업: "중소기업",
+  스타트업: "스타트업", 공기업: "공기업", 외국계: "외국계",
+};
 
 /* ── 애니메이션 훅 ── */
 function useInView(threshold = 0.2) {
@@ -195,10 +199,12 @@ function ReportContent() {
   useEffect(() => {
     const settings = JSON.parse(sessionStorage.getItem("interviewSettings") || "{}");
     const dept = settings.department || "";
+    const jobRole = settings.jobRole || "";
+    const company = COMPANY_LABEL[settings.companyType] || settings.companyType || "";
     const type = TYPE_LABEL[settings.interviewType] || "혼합 면접";
     const style = STYLE_LABEL[settings.style] || "";
     const date = new Date().toISOString().slice(0, 10);
-    setSubtitle([dept, type, style && `${style} 면접관`, date].filter(Boolean).join(" · "));
+    setSubtitle([dept, jobRole, company, type, style && `${style} 면접관`, date].filter(Boolean).join(" · "));
 
     const raw = sessionStorage.getItem("interviewReport");
     if (raw) {
