@@ -192,7 +192,7 @@ function commonQuestionRules(persona) {
   );
 }
 
-function buildCommonPrompt(department, jobRole, companyType, experienceLevel, style) {
+function buildCommonPrompt1(department, jobRole, companyType, experienceLevel, style) {
   const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
   const target = jobRole ? `${department} / ${jobRole}` : department;
 
@@ -203,12 +203,30 @@ function buildCommonPrompt(department, jobRole, companyType, experienceLevel, st
   p += `면접관 성격: ${persona.tone} — ${persona.desc}\n\n`;
   if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
 
-  p += `면접 질문 2개를 작성하세요.\n\n`;
-  p += `질문 1: 어떤 개발 분야에 관심이 있고 앞으로 어떤 개발자가 되고 싶은지 설명하게 만드는 질문.\n`;
-  p += `질문 2: 팀 프로젝트에서 git 브랜치 전략이나 코드 컨벤션을 어떻게 관리했는지 설명하게 만드는 질문.\n\n`;
+  p += `면접 질문 1개만 작성하세요.\n\n`;
+  p += `질문: 어떤 개발 분야에 관심이 있고 앞으로 어떤 개발자가 되고 싶은지 설명하게 만드는 질문.\n\n`;
   p += commonQuestionRules(persona);
   p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
-  p += `{"questions":["질문1?","질문2?"]}`;
+  p += `{"questions":["질문?"]}`;
+  return p;
+}
+
+function buildCommonPrompt2(department, jobRole, companyType, experienceLevel, style) {
+  const { persona, level, companyLabel, companyContext } = buildBaseContext(department, jobRole, companyType, experienceLevel, style);
+  const target = jobRole ? `${department} / ${jobRole}` : department;
+
+  let p = `당신은 한국어로만 대답하는 채용 전문 면접관입니다.\n`;
+  p += `면접관 역할: ${persona.role}\n`;
+  p += `지원자: ${target} | 수준: ${level}\n`;
+  p += `회사 유형: ${companyLabel}\n`;
+  p += `면접관 성격: ${persona.tone} — ${persona.desc}\n\n`;
+  if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
+
+  p += `면접 질문 1개만 작성하세요.\n\n`;
+  p += `질문: 팀 프로젝트에서 git 브랜치 전략이나 코드 컨벤션을 어떻게 관리했는지 설명하게 만드는 질문.\n\n`;
+  p += commonQuestionRules(persona);
+  p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
+  p += `{"questions":["질문?"]}`;
   return p;
 }
 
@@ -372,15 +390,24 @@ app.post('/generate/questions', async (req, res) => {
       }
     };
 
-    // 패스 1: 공통 2개 (0~25%)
+    // 패스 1: 공통 2개 (각각 따로 생성 — 한 번에 2개 요청 시 1개만 반환되는 모델 오류 방지)
     sendProgress(0, '공통 질문 생성 중...');
-    const commonPass = await streamMLX(
-      llamaClient, LLAMA_MODEL,
-      buildCommonPrompt(department, jobRole, companyType, experienceLevel, style),
-      (p) => sendProgress(Math.floor(p * 0.25), '공통 질문 생성 중...'),
-      150,
-    );
-    const commonQs = Array.isArray(commonPass.questions) ? commonPass.questions.slice(0, 2) : [];
+    const [commonPass1, commonPass2] = await Promise.all([
+      streamMLX(
+        llamaClient, LLAMA_MODEL,
+        buildCommonPrompt1(department, jobRole, companyType, experienceLevel, style),
+        () => {}, 80,
+      ),
+      streamMLX(
+        llamaClient, LLAMA_MODEL,
+        buildCommonPrompt2(department, jobRole, companyType, experienceLevel, style),
+        (p) => sendProgress(Math.floor(p * 0.25), '공통 질문 생성 중...'),
+        80,
+      ),
+    ]);
+    const commonQ1 = Array.isArray(commonPass1.questions) ? commonPass1.questions.slice(0, 1) : [];
+    const commonQ2 = Array.isArray(commonPass2.questions) ? commonPass2.questions.slice(0, 1) : [];
+    const commonQs = [...commonQ1, ...commonQ2];
 
     // 질문 필터: 불량 항목 제거 (카테고리 추적과 함께)
     const filterQuestion = (q) => {
