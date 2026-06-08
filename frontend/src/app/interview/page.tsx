@@ -760,7 +760,7 @@ export default function InterviewPage() {
 
   // ── 커스텀 훅 ──
   const {
-    questions, questionsRef, setQuestions, questionCategories,
+    questions, questionsRef, setQuestions, questionCategories, setQuestionCategories,
     questionsLoading, questionsProgress, questionsStep, questionError,
     interviewStyle, avatarSrc, resolvedStyleRef,
   } = useInterviewQuestions();
@@ -1669,6 +1669,9 @@ export default function InterviewPage() {
                       newQs.splice(qIdxRef.current + 1, 0, followup);
                       questionsRef.current = newQs;
                       setQuestions(newQs);
+                      const newCats = [...questionCategories];
+                      newCats.splice(qIdxRef.current + 1, 0, "꼬리질문");
+                      setQuestionCategories(newCats);
                       followupTextsRef.current.add(followup);
                     }
                     pendingFollowupRef.current = null;

@@ -467,12 +467,15 @@ function ReportContent() {
             <h2 className="font-semibold text-[16px] text-[#0d1035]">질문별 상세 피드백</h2>
           </div>
           <div className="divide-y divide-[#f0f2f8]">
-            {report.questions.map((q, i) => {
+            {(() => {
+              let mainQCounter = 0;
+              return report.questions.map((q, i) => {
               const fb = report.questionFeedback[i] ?? null;
               const category = report.categories[i] ?? "";
               const parentLabel = report.followupParentLabels?.[q];
               const isFollowup = !!parentLabel;
-              const qLabel = isFollowup ? `${parentLabel}-1` : `Q${i + 1}`;
+              if (!isFollowup) mainQCounter++;
+              const qLabel = isFollowup ? `${parentLabel}-1` : `Q${mainQCounter}`;
               const badgeStyle: Record<string, string> = {
                 "소개":   "bg-purple-100 text-purple-600",
                 "공통":   "bg-blue-100 text-blue-600",
@@ -561,7 +564,8 @@ function ReportContent() {
                   )}
                 </div>
               );
-            })}
+              });
+            })()}
           </div>
         </div>
 

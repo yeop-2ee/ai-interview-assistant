@@ -140,6 +140,7 @@ export function useInterviewQuestions() {
     questionsRef,
     setQuestions,
     questionCategories,
+    setQuestionCategories,
     questionsLoading,
     questionsProgress,
     questionsStep,
