@@ -32,8 +32,8 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
 async function uploadAndExtract(file: File): Promise<{ ok: boolean; extractedText?: string; error?: string }> {
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (!["pdf", "docx", "hwp", "hwpx"].includes(ext)) {
-    return { ok: false, error: "PDF, DOCX, HWP 파일만 업로드 가능합니다." };
+  if (!["pdf", "docx"].includes(ext)) {
+    return { ok: false, error: "PDF 또는 DOCX 파일만 업로드 가능합니다." };
   }
   try {
     const form = new FormData();
@@ -70,7 +70,7 @@ function DropZone({ label, state, onChange, onRemove }: {
       onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onChange(f); }}
       onClick={() => ref.current?.click()}
     >
-      <input ref={ref} type="file" accept=".pdf,.docx,.hwp,.hwpx" className="hidden"
+      <input ref={ref} type="file" accept=".pdf,.docx" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onChange(f); e.target.value = ""; }} />
 
       <div className="flex flex-col items-center text-center gap-3">
@@ -105,7 +105,7 @@ function DropZone({ label, state, onChange, onRemove }: {
               )}
             </div>
           ) : (
-            <div className="text-[12px] text-[#9ca3af]">PDF, DOCX, HWP 지원</div>
+            <div className="text-[12px] text-[#9ca3af]">PDF, DOCX 지원</div>
           )}
         </div>
 
