@@ -22,6 +22,13 @@ router.post("/resume", upload.single("file"), async (req: Request, res: Response
       .replace(/(\d)\s+(?=\d)/g, "$1")
       .replace(/([A-Za-z])\s+(?=[A-Za-z])/g, "$1");
 
+    if (extractedText.length < 50) {
+      res.status(422).json({
+        message: "텍스트를 추출할 수 없습니다. 이미지·표 위주의 파일이거나 손상된 파일입니다. PDF 또는 DOCX로 변환 후 업로드해 주세요.",
+      });
+      return;
+    }
+
     res.status(200).json({
       message: "텍스트 추출 성공",
       originalname: req.file.originalname,
