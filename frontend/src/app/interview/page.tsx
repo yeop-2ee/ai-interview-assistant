@@ -1915,6 +1915,7 @@ export default function InterviewPage() {
         <SurveyEmailModal
           questions={messages.filter(m => m.role === "ai" && !m.text.includes("수고하셨습니다")).map(m => m.text)}
           answers={messages.filter(m => m.role === "user").map(m => m.text)}
+          followupParentLabels={Object.fromEntries(followupParentLabelRef.current)}
           onClose={() => setShowReportSurveyModal(false)}
         />
       )}

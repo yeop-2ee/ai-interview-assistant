@@ -7,6 +7,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 interface Props {
   questions?: string[];
   answers?: string[];
+  followupParentLabels?: Record<string, string>;
   onClose: () => void;
 }
 
@@ -19,7 +20,7 @@ const QUESTION_QUALITY_LEVELS = [
   { score: 5, label: "매우\n도움됐어요" },
 ];
 
-export default function SurveyEmailModal({ questions = [], answers = [], onClose }: Props) {
+export default function SurveyEmailModal({ questions = [], answers = [], followupParentLabels, onClose }: Props) {
   const [step, setStep] = useState<"survey" | "email" | "done">("survey");
   const [surveySkipped, setSurveySkipped] = useState(false);
 
@@ -68,16 +69,6 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
     if (!email || !email.includes("@") || emailSending) return;
     setEmailSending(true);
     setEmailError(false);
-
-    // 세션스토리지에서 꼬리질문 정보 읽기
-    let followupParentLabels: Record<string, string> | undefined;
-    try {
-      const raw = sessionStorage.getItem("interviewReport");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        followupParentLabels = parsed.followupParentLabels ?? undefined;
-      }
-    } catch { /* 무시 */ }
 
     try {
       const res = await fetch(`${BACKEND_URL}/email/send-results`, {
