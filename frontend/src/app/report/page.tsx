@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { IconArrowRight, IconCheck } from "@/components/Icons";
 import { authFetch } from "@/lib/auth";
 
@@ -190,13 +190,11 @@ function ReportContent() {
   const [subtitle, setSubtitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState("");
-  const mainRef = useRef<HTMLDivElement>(null);
   const { ref: overallRef, inView: overallInView } = useInView(0.3);
 
   useEffect(() => {
@@ -271,76 +269,6 @@ function ReportContent() {
       setEmailError("서버에 연결할 수 없습니다.");
     } finally {
       setEmailSending(false);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!mainRef.current) return;
-    setDownloading(true);
-    try {
-      const domtoimage = (await import("dom-to-image-more")).default;
-      const { default: jsPDF } = await import("jspdf");
-
-      const node = mainRef.current;
-
-      // PDF에서 제외할 요소 숨김
-      const hiddenEls = node.querySelectorAll<HTMLElement>(".pdf-hidden");
-      hiddenEls.forEach((el) => { el.style.visibility = "hidden"; });
-
-      const dataUrl = await domtoimage.toPng(node, {
-        width: node.scrollWidth,
-        height: node.scrollHeight,
-        style: {
-          width: `${node.scrollWidth}px`,
-          height: `${node.scrollHeight}px`,
-        },
-        bgcolor: "#f8f9fc",
-        scale: 2,
-        filter: (node: Node) => !(node as Element).classList?.contains("pdf-hidden"),
-      });
-
-      // 숨긴 요소 복원
-      hiddenEls.forEach((el) => { el.style.visibility = ""; });
-
-      const img = new Image();
-      img.src = dataUrl;
-      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
-
-      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-      const pageW = pdf.internal.pageSize.getWidth();   // 210mm
-      const pageH = pdf.internal.pageSize.getHeight();  // 297mm
-
-      // scale=2이므로 실제 px은 2배
-      const imgW = img.naturalWidth;
-      const imgH = img.naturalHeight;
-      const mmPerPx = pageW / imgW;
-      const pxPerPage = Math.round(pageH / mmPerPx);
-      const pageCount = Math.ceil(imgH / pxPerPage);
-
-      for (let i = 0; i < pageCount; i++) {
-        const srcY = i * pxPerPage;
-        const srcH = Math.min(pxPerPage, imgH - srcY);
-        if (srcH < pxPerPage * 0.05) break;
-
-        if (i > 0) pdf.addPage();
-
-        const slice = document.createElement("canvas");
-        slice.width = imgW;
-        slice.height = srcH;
-        const ctx = slice.getContext("2d")!;
-        ctx.fillStyle = "#f8f9fc";
-        ctx.fillRect(0, 0, slice.width, slice.height);
-        ctx.drawImage(img, 0, srcY, imgW, srcH, 0, 0, imgW, srcH);
-
-        const destH_mm = srcH * mmPerPx;
-        pdf.addImage(slice.toDataURL("image/png"), "PNG", 0, 0, pageW, destH_mm);
-      }
-
-      pdf.save(`면접_리포트_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch (e) {
-      console.error("PDF 생성 실패:", e);
-    } finally {
-      setDownloading(false);
     }
   };
 
@@ -434,13 +362,6 @@ function ReportContent() {
               </svg>
               <span className="hidden sm:inline">메일로 보내기</span>
             </button>
-            <button onClick={handleDownload} disabled={downloading}
-              className="text-[12px] sm:text-[13px] border border-[#e4e7ef] text-[#374151] hover:border-[#a5a7f3] disabled:opacity-50 px-2.5 sm:px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
-              {downloading
-                ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="hidden sm:inline">변환 중...</span></>
-                : <><svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span className="hidden sm:inline">PDF 다운로드</span></>
-              }
-            </button>
             <button onClick={() => router.push("/setup")}
               className="text-[12px] sm:text-[13px] font-medium bg-[#4f52e8] hover:bg-[#3e41d4] text-white px-2.5 sm:px-4 py-1.5 rounded-lg flex items-center gap-1.5 flex-shrink-0">
               <span className="hidden sm:inline">다시 연습</span><span className="sm:hidden">재시작</span> <IconArrowRight className="w-3.5 h-3.5" />
@@ -449,7 +370,7 @@ function ReportContent() {
         </div>
       </header>
 
-      <main ref={mainRef} className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6">
         {/* 타이틀 + 종합 점수 */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div>
@@ -668,7 +589,7 @@ function ReportContent() {
         </div>
 
         {/* CTA */}
-        <div className="bg-[#0d1035] rounded-2xl p-8 text-white print:hidden pdf-hidden">
+        <div className="bg-[#0d1035] rounded-2xl p-8 text-white">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div>
               <h3 className="text-[20px] font-bold mb-1.5">계속 연습할수록 나아집니다</h3>

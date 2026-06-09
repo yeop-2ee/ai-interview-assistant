@@ -68,11 +68,22 @@ export default function SurveyEmailModal({ questions = [], answers = [], onClose
     if (!email || !email.includes("@") || emailSending) return;
     setEmailSending(true);
     setEmailError(false);
+
+    // 세션스토리지에서 꼬리질문 정보 읽기
+    let followupParentLabels: Record<string, string> | undefined;
+    try {
+      const raw = sessionStorage.getItem("interviewReport");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        followupParentLabels = parsed.followupParentLabels ?? undefined;
+      }
+    } catch { /* 무시 */ }
+
     try {
       const res = await fetch(`${BACKEND_URL}/email/send-results`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, questions, answers, surveys: [] }),
+        body: JSON.stringify({ email, questions, answers, followupParentLabels, surveys: [] }),
       });
       const data = await res.json();
       if (data.ok) { setStep("done"); return; }
