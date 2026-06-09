@@ -39,11 +39,11 @@ body {
 }
 
 /* ══ 사용자 플로우 (세로 — 중앙 우측 상단) ══ */
-.col-flow { grid-column: 2; grid-row: 1; }
-.col-flow .card { padding: 10px 9px; height: 100%; display: flex; flex-direction: column; }
+.col-flow { grid-column: 2; grid-row: 1; align-self: start; }
+.col-flow .card { padding: 10px 9px; display: flex; flex-direction: column; }
 
 .vflow-inner {
-  display: flex; flex-direction: column; gap: 0; flex: 1;
+  display: flex; flex-direction: column; gap: 0;
 }
 .vflow-step {
   border-radius: 7px;
@@ -89,14 +89,14 @@ body {
 .ph li::before { content: '·'; position: absolute; left: 2px; color: #64748b; }
 
 /* ══ AI 인스트럭션 (세로 — 중앙 우측 하단) ══ */
-.col-inst { grid-column: 2; grid-row: 2; }
+.col-inst { grid-column: 2; grid-row: 2; align-self: start; }
 .inst-wrap {
   background: #fff; border-radius: 13px; border: 1px solid #e2e8f0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  padding: 10px 9px; height: 100%; display: flex; flex-direction: column;
+  padding: 10px 9px; display: flex; flex-direction: column;
 }
 .inst-inner {
-  display: flex; flex-direction: column; gap: 5px; flex: 1;
+  display: flex; flex-direction: column; gap: 5px;
 }
 .inst-card {
   border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; flex-shrink: 0;
