@@ -48,3 +48,13 @@ model KnowledgeEntry {
   registeredBy   String   @default("")
   createdAt      DateTime @default(now())
 }
+
+model EmailVerification {
+  id        Int      @id @default(autoincrement())
+  email     String
+  code      String
+  token     String?  @unique
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}

@@ -191,8 +191,18 @@ function ReportContent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const mainRef = useRef<HTMLDivElement>(null);
   const { ref: overallRef, inView: overallInView } = useInView(0.3);
+
+  useEffect(() => {
+    const storedEmail = localStorage.getItem("userEmail");
+    if (storedEmail) setEmailInput(storedEmail);
+  }, []);
 
   useEffect(() => {
     const settings = JSON.parse(sessionStorage.getItem("interviewSettings") || "{}");
@@ -238,6 +248,30 @@ function ReportContent() {
       });
       if (res.ok) setSaved(true);
     } finally { setSaving(false); }
+  };
+
+  const handleSendEmail = async () => {
+    if (!report) return;
+    setEmailError("");
+    setEmailSending(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/email/send-report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailInput, report, subtitle }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEmailError(data.message || "이메일 전송에 실패했습니다.");
+        return;
+      }
+      setEmailSent(true);
+      setTimeout(() => { setShowEmailModal(false); setEmailSent(false); }, 2000);
+    } catch {
+      setEmailError("서버에 연결할 수 없습니다.");
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -323,6 +357,59 @@ function ReportContent() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
+      {/* ── 메일 발송 모달 ── */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowEmailModal(false); setEmailError(""); }} />
+          <div className="relative bg-white rounded-2xl border border-[#e4e7ef] shadow-2xl w-full max-w-[380px] p-6">
+            <h3 className="text-[16px] font-bold text-[#0d1035] mb-1">리포트 메일 발송</h3>
+            <p className="text-[13px] text-[#6b7280] mb-5">면접 결과 리포트를 이메일로 받아보세요.</p>
+            <div className="mb-4">
+              <label className="block text-[12px] font-medium text-[#374151] mb-1.5">수신 이메일</label>
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => { setEmailInput(e.target.value); setEmailError(""); }}
+                placeholder="example@email.com"
+                className="w-full px-3.5 py-2.5 bg-[#f8f9fc] border border-[#e4e7ef] rounded-xl text-[14px] text-[#0d1035] placeholder-[#c4c9d6] focus:outline-none focus:border-[#4f52e8] focus:ring-1 focus:ring-[#4f52e8] transition-colors"
+              />
+              {emailError && (
+                <p className="mt-1.5 text-[12px] text-red-500">{emailError}</p>
+              )}
+            </div>
+            {emailSent ? (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <p className="text-[13px] text-emerald-700 font-medium">이메일이 전송되었습니다!</p>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowEmailModal(false); setEmailError(""); }}
+                  className="flex-1 py-2.5 rounded-xl border border-[#e4e7ef] text-[14px] text-[#374151] hover:bg-[#f8f9fc] transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={emailSending || !emailInput.includes("@")}
+                  className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold transition-all flex items-center justify-center gap-2 ${
+                    emailSending || !emailInput.includes("@")
+                      ? "bg-[#e4e7ef] text-[#9ca3af] cursor-not-allowed"
+                      : "bg-[#4f52e8] hover:bg-[#3e41d4] text-white"
+                  }`}
+                >
+                  {emailSending
+                    ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>발송 중...</>
+                    : "보내기"
+                  }
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-[#e4e7ef] sticky top-0 z-50 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-[60px] flex items-center justify-between gap-2">
@@ -339,6 +426,14 @@ function ReportContent() {
                 {saving ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="hidden sm:inline">저장 중</span></> : saved ? <><IconCheck className="w-3.5 h-3.5" /><span className="hidden sm:inline">저장됨</span></> : <><span className="hidden sm:inline">리포트 </span>저장</>}
               </button>
             )}
+            <button onClick={() => { setShowEmailModal(true); setEmailSent(false); setEmailError(""); }}
+              className="text-[12px] sm:text-[13px] border border-[#e4e7ef] text-[#374151] hover:border-[#a5a7f3] px-2.5 sm:px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              <span className="hidden sm:inline">메일로 보내기</span>
+            </button>
             <button onClick={handleDownload} disabled={downloading}
               className="text-[12px] sm:text-[13px] border border-[#e4e7ef] text-[#374151] hover:border-[#a5a7f3] disabled:opacity-50 px-2.5 sm:px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
               {downloading
