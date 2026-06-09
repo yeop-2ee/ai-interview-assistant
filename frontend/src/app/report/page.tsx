@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { IconArrowRight, IconCheck } from "@/components/Icons";
 import { authFetch } from "@/lib/auth";
 
