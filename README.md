@@ -8,7 +8,11 @@
 
 ## 시스템 구성도
 
-![시스템 구성도](docs/system-diagram.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/system-diagram-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/system-diagram.png">
+  <img alt="시스템 구성도" src="docs/system-diagram.png">
+</picture>
 
 ---
 

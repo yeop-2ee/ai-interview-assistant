@@ -38,4 +38,6 @@ venv/
 *.db-journal
 *.sqlite
 system-diagram.html
+system-diagram-dark.html
 !docs/system-diagram.png
+!docs/system-diagram-dark.png
