@@ -38,8 +38,11 @@ body {
   text-transform: uppercase; color: #94a3b8; margin-bottom: 10px;
 }
 
-/* ══ 사용자 플로우 (세로 — 중앙 우측 상단) ══ */
-.col-flow { grid-column: 2; grid-row: 1; align-self: start; }
+/* ══ 사이드바 래퍼 (사용자 플로우 + AI 인스트럭션) ══ */
+.col-sidebar { grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 12px; align-self: start; }
+
+/* ══ 사용자 플로우 ══ */
+.col-flow { }
 .col-flow .card { padding: 10px 9px; display: flex; flex-direction: column; }
 
 .vflow-inner {
@@ -88,8 +91,8 @@ body {
 .ph li { font-size: 12.5px; color: #64748b; padding-left: 10px; position: relative; }
 .ph li::before { content: '·'; position: absolute; left: 2px; color: #64748b; }
 
-/* ══ AI 인스트럭션 (세로 — 중앙 우측 하단) ══ */
-.col-inst { grid-column: 2; grid-row: 2; align-self: start; }
+/* ══ AI 인스트럭션 ══ */
+.col-inst { }
 .inst-wrap {
   background: #fff; border-radius: 13px; border: 1px solid #e2e8f0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
@@ -149,7 +152,10 @@ body {
 
 <div class="grid">
 
-<!-- ══ 사용자 플로우 (세로 — 왼쪽 상단) ══ -->
+<!-- ══ 사이드바: 사용자 플로우 + AI 인스트럭션 ══ -->
+<div class="col-sidebar">
+
+<!-- ══ 사용자 플로우 ══ -->
 <div class="col-flow"><div class="card">
   <div class="slabel">사용자 플로우</div>
   <div class="vflow-inner">
@@ -511,7 +517,7 @@ body {
   <div class="ph"><div class="ph-num">PHASE 04</div><div class="ph-title">리포트 생성</div><ul><li>전체 Q&amp;A LLM 전달</li><li>종합점수 · 질문별 피드백</li><li>강점 · 보완점 · 주의사항</li><li>개선 답변 · 적합도 평가</li><li>이메일 발송 · 리포트 저장</li></ul></div>
 </div></div>
 
-<!-- ══ AI 인스트럭션 (세로 — 왼쪽 하단) ══ -->
+<!-- ══ AI 인스트럭션 ══ -->
 <div class="col-inst"><div class="inst-wrap">
   <div class="slabel">AI 인스트럭션</div>
   <div class="inst-inner">
@@ -566,6 +572,8 @@ body {
     </div>
   </div>
 </div></div>
+
+</div><!-- /col-sidebar -->
 
 <!-- ══ 기술 스택 ══ -->
 <div class="col-s"><div class="card">
