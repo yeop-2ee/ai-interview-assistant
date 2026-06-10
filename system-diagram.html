@@ -220,6 +220,64 @@ body {
   </div>
 </div></div>
 
+<!-- ══ AI 인스트럭션 ══ -->
+<div class="col-inst"><div class="inst-wrap">
+  <div class="slabel">AI 인스트럭션</div>
+  <div class="inst-inner">
+    <div class="inst-card">
+      <div class="inst-hd">면접관 페르소나 4종</div>
+      <div class="inst-bd">
+        <b>부드러운</b> — HR 매니저 어투<br>
+        <b>압박형</b> — 논리 허점 추궁<br>
+        <b>교수형</b> — 원리 · 배경 중심<br>
+        <b>실무형</b> — 시나리오 기반
+      </div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-hd">질문 생성 2~3 Pass</div>
+      <div class="inst-bd">
+        <span class="pbadge">Pass 1</span> <b>공통 2개 (필수)</b><br>
+        지원동기 · 실패/갈등 경험<br><br>
+        <span class="pbadge">Pass 2</span> <b>직무/인성 3개 (필수)</b><br>
+        핵심기술 <span class="inject">← 전공지식 DB 주입</span>
+        <span class="pbadge">Pass 3</span> <b>이력서 2개 (조건부)</b><br>
+        resume/mixed 타입 한정
+      </div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-hd">경력별 깊이 차등</div>
+      <div class="inst-bd">
+        <b>신입</b> — 학습 의지 · 성장 가능성<br>
+        <b>주니어</b> — 실무 경험 · 해결 과정<br>
+        <b>미드</b> — 설계 결정 · 아키텍처<br>
+        <b>시니어</b> — 리더십 · 기술 의사결정
+      </div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-hd">회사 유형별 맥락</div>
+      <div class="inst-bd">
+        <b>스타트업</b> — 인력 · 예산 부족<br>
+        <b>중소기업</b> — 즉시 투입 실용성<br>
+        <b>대기업</b> — 협업 · 전문성<br>
+        <b>공기업</b> — 규정 · 보안 · 안정성<br>
+        <b>외국계</b> — 글로벌 · 영어 소통
+      </div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-hd">리포트 평가 항목</div>
+      <div class="inst-bd">
+        종합점수 (0~100점)<br>
+        내용 · 논리 · 전달력 · 신뢰도 · 호감도<br>
+        강점 · 보완점 · 주의사항<br>
+        질문별 개선 답변 제시<br>
+        직무 / 조직 / 기업 적합도
+      </div>
+    </div>
+  </div>
+</div></div>
+
+</div><!-- /col-sidebar -->
+
 <!-- ══ SVG 시스템 다이어그램 ══ -->
 <div class="col-svg"><div class="card">
 <svg viewBox="0 0 1568 1700" xmlns="http://www.w3.org/2000/svg"
@@ -516,64 +574,6 @@ body {
   <div class="ph"><div class="ph-num">PHASE 03</div><div class="ph-title">면접 진행</div><ul><li>질문 TTS 합성 (MP3)</li><li>Wav2Lip 립싱크 MP4</li><li>아바타 영상 재생</li><li>음성 녹음 → Whisper STT</li><li>꼬리질문 자동 생성</li></ul></div>
   <div class="ph"><div class="ph-num">PHASE 04</div><div class="ph-title">리포트 생성</div><ul><li>전체 Q&amp;A LLM 전달</li><li>종합점수 · 질문별 피드백</li><li>강점 · 보완점 · 주의사항</li><li>개선 답변 · 적합도 평가</li><li>이메일 발송 · 리포트 저장</li></ul></div>
 </div></div>
-
-<!-- ══ AI 인스트럭션 ══ -->
-<div class="col-inst"><div class="inst-wrap">
-  <div class="slabel">AI 인스트럭션</div>
-  <div class="inst-inner">
-    <div class="inst-card">
-      <div class="inst-hd">면접관 페르소나 4종</div>
-      <div class="inst-bd">
-        <b>부드러운</b> — HR 매니저 어투<br>
-        <b>압박형</b> — 논리 허점 추궁<br>
-        <b>교수형</b> — 원리 · 배경 중심<br>
-        <b>실무형</b> — 시나리오 기반
-      </div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-hd">질문 생성 2~3 Pass</div>
-      <div class="inst-bd">
-        <span class="pbadge">Pass 1</span> <b>공통 2개 (필수)</b><br>
-        지원동기 · 실패/갈등 경험<br><br>
-        <span class="pbadge">Pass 2</span> <b>직무/인성 3개 (필수)</b><br>
-        핵심기술 <span class="inject">← 전공지식 DB 주입</span>
-        <span class="pbadge">Pass 3</span> <b>이력서 2개 (조건부)</b><br>
-        resume/mixed 타입 한정
-      </div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-hd">경력별 깊이 차등</div>
-      <div class="inst-bd">
-        <b>신입</b> — 학습 의지 · 성장 가능성<br>
-        <b>주니어</b> — 실무 경험 · 해결 과정<br>
-        <b>미드</b> — 설계 결정 · 아키텍처<br>
-        <b>시니어</b> — 리더십 · 기술 의사결정
-      </div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-hd">회사 유형별 맥락</div>
-      <div class="inst-bd">
-        <b>스타트업</b> — 인력 · 예산 부족<br>
-        <b>중소기업</b> — 즉시 투입 실용성<br>
-        <b>대기업</b> — 협업 · 전문성<br>
-        <b>공기업</b> — 규정 · 보안 · 안정성<br>
-        <b>외국계</b> — 글로벌 · 영어 소통
-      </div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-hd">리포트 평가 항목</div>
-      <div class="inst-bd">
-        종합점수 (0~100점)<br>
-        내용 · 논리 · 전달력 · 신뢰도 · 호감도<br>
-        강점 · 보완점 · 주의사항<br>
-        질문별 개선 답변 제시<br>
-        직무 / 조직 / 기업 적합도
-      </div>
-    </div>
-  </div>
-</div></div>
-
-</div><!-- /col-sidebar -->
 
 <!-- ══ 기술 스택 ══ -->
 <div class="col-s"><div class="card">
