@@ -37,3 +37,4 @@ venv/
 *.db
 *.db-journal
 *.sqlite
+system-diagram.html
