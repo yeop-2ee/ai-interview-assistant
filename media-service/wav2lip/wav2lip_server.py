@@ -40,14 +40,49 @@ MEL_STEP_SIZE = 16
 WAV2LIP_BATCH_SIZE = 128
 PADS = [0, 10, 0, 0]
 MAX_FRAME_WIDTH = 1080  # 처리 해상도 상한 (원본이 크면 축소)
+GFPGAN_MODEL_PATH = os.environ.get("GFPGAN_MODEL_PATH", "").strip()
 
 device = 'cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu')
 
 # 전역: 모델 및 face detection 캐시
 _model = None
+_gfpgan = None   # GFPGAN 복원 모델 (선택적)
 _face_cache = {}   # face_path → (y1, y2, x1, x2) — 리사이즈된 프레임 기준
 _frame_cache = {}  # face_path → resized frame (ndarray)
 _lock = threading.Lock()
+
+
+def load_gfpgan_model(model_path):
+    """GFPGAN 모델 로드 — 설치되지 않았거나 모델 파일 없으면 None 반환"""
+    try:
+        from gfpgan import GFPGANer
+        restorer = GFPGANer(
+            model_path=model_path,
+            upscale=1,           # 해상도 유지, 화질만 복원
+            arch='clean',
+            channel_multiplier=2,
+            bg_upsampler=None,   # 배경 업스케일 없음 (속도 우선)
+        )
+        print("GFPGAN 모델 로드 완료", flush=True)
+        return restorer
+    except Exception as e:
+        print(f"GFPGAN 로드 실패 (건너뜀): {e}", flush=True)
+        return None
+
+
+def enhance_frame_gfpgan(restorer, frame):
+    """GFPGAN으로 프레임 얼굴 화질 복원. 실패 시 원본 반환"""
+    try:
+        _, _, restored = restorer.enhance(
+            frame,
+            has_aligned=False,
+            only_center_face=True,
+            paste_back=True,
+            weight=0.5,   # 0=원본, 1=완전복원 — 0.5로 자연스럽게 블렌딩
+        )
+        return restored if restored is not None else frame
+    except Exception:
+        return frame
 
 
 def load_wav2lip_model(checkpoint_path):
@@ -186,6 +221,11 @@ def synthesize(face_path, audio_path, output_path):
             orig = f[cy1:cy2, cx1:cx2].astype(np.float32)
             blended = (p_resized.astype(np.float32) * mask3 + orig * (1.0 - mask3)).astype(np.uint8)
             f[cy1:cy2, cx1:cx2] = blended
+
+            # GFPGAN 화질 복원 (모델 로드된 경우)
+            if _gfpgan is not None:
+                f = enhance_frame_gfpgan(_gfpgan, f)
+
             ffmpeg_proc.stdin.write(f.tobytes())
 
     for i, m in enumerate(mel_chunks):
@@ -256,6 +296,13 @@ if __name__ == "__main__":
     # 모델 미리 로드
     print("Wav2Lip 모델 로딩 중...", flush=True)
     _model = load_wav2lip_model(CHECKPOINT_PATH)
+
+    # GFPGAN 모델 로드 (환경변수 설정된 경우)
+    if GFPGAN_MODEL_PATH and os.path.isfile(GFPGAN_MODEL_PATH):
+        print("GFPGAN 모델 로딩 중...", flush=True)
+        _gfpgan = load_gfpgan_model(GFPGAN_MODEL_PATH)
+    else:
+        print("GFPGAN_MODEL_PATH 미설정 — 화질 복원 비활성화", flush=True)
 
     # 아바타 이미지 face detection 사전 캐싱
     if FRONTEND_PUBLIC_DIR:
