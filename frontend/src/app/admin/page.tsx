@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { IconX } from "@/components/Icons";
 import { authFetch } from "@/lib/auth";
@@ -51,27 +51,195 @@ type SurveyStats = {
   daily: { date: string; count: number }[];
 };
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+// 숫자 카운트업 애니메이션 카드
+function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
+  const isNum = typeof value === "number";
+  const [displayed, setDisplayed] = useState(0);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!isNum) return;
+    const target = value as number;
+    const duration = 900;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setDisplayed(Math.round(ease * target));
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, isNum]);
+
   return (
-    <div className="bg-white rounded-2xl border border-[#e4e7ef] px-4 sm:px-6 py-4 sm:py-5">
-      <p className="text-[11px] sm:text-[11.5px] text-[#9ca3af] mb-1">{label}</p>
-      <p className="text-[22px] sm:text-[28px] font-bold text-[#0d1035] leading-none">{value}</p>
-      {sub && <p className="text-[11px] sm:text-[11.5px] text-[#9ca3af] mt-1">{sub}</p>}
+    <div className="bg-white rounded-2xl border border-[#e4e7ef] px-4 sm:px-6 py-5 sm:py-6 flex flex-col gap-1 relative overflow-hidden">
+      <div className="absolute inset-0 opacity-[0.03]" style={{ background: `radial-gradient(circle at 80% 20%, ${accent ?? "#4f52e8"}, transparent 70%)` }} />
+      <p className="text-[11px] sm:text-[11.5px] text-[#9ca3af] font-medium">{label}</p>
+      <p className="text-[26px] sm:text-[32px] font-bold leading-none" style={{ color: accent ?? "#0d1035" }}>
+        {isNum ? displayed.toLocaleString() : value}
+      </p>
+      {sub && <p className="text-[11px] sm:text-[11.5px] text-[#9ca3af] mt-0.5">{sub}</p>}
     </div>
   );
 }
 
-function HBar({ label, count, total, color = "#4f52e8" }: { label: string; count: number; total: number; color?: string }) {
+// 애니메이션 가로 바
+function HBar({ label, count, total, color = "#4f52e8", delay = 0 }: { label: string; count: number; total: number; color?: string; delay?: number }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setW(pct), 80 + delay);
+    return () => clearTimeout(t);
+  }, [pct, delay]);
   return (
     <div className="flex items-center gap-2 sm:gap-3">
-      <span className="text-[11.5px] sm:text-[12.5px] text-[#374151] w-20 sm:w-32 flex-shrink-0 text-right font-medium leading-tight">{label}</span>
-      <div className="flex-1 h-5 sm:h-6 bg-[#f3f4f6] rounded-lg overflow-hidden relative">
-        <div className="h-full rounded-lg transition-all duration-500 flex items-center" style={{ width: `${pct}%`, backgroundColor: color }}>
-          {pct >= 15 && <span className="text-[10px] sm:text-[11px] font-semibold text-white pl-2">{pct}%</span>}
+      <span className="text-[11.5px] sm:text-[12.5px] text-[#374151] w-20 sm:w-28 flex-shrink-0 text-right font-medium leading-tight">{label}</span>
+      <div className="flex-1 h-5 sm:h-6 bg-[#f3f4f6] rounded-lg overflow-hidden">
+        <div className="h-full rounded-lg flex items-center transition-[width] duration-700 ease-out" style={{ width: `${w}%`, backgroundColor: color }}>
+          {w >= 15 && <span className="text-[10px] sm:text-[11px] font-semibold text-white pl-2">{pct}%</span>}
         </div>
       </div>
-      <span className="text-[12px] sm:text-[13px] font-bold text-[#0d1035] w-10 sm:w-12 flex-shrink-0 text-right">{count}<span className="text-[10px] sm:text-[11px] font-normal text-[#9ca3af]">건</span></span>
+      <span className="text-[12px] sm:text-[13px] font-bold text-[#0d1035] w-10 sm:w-12 flex-shrink-0 text-right">
+        {count}<span className="text-[10px] sm:text-[11px] font-normal text-[#9ca3af]">건</span>
+      </span>
+    </div>
+  );
+}
+
+// 도넛 차트
+function DonutChart({ data, colors, total }: { data: { label: string; value: number }[]; colors: string[]; total: number }) {
+  const [animated, setAnimated] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setAnimated(true), 100); return () => clearTimeout(t); }, []);
+
+  const r = 52; const cx = 70; const cy = 70;
+  const circ = 2 * Math.PI * r;
+  let cumPct = 0;
+  const segments = data.map((d, i) => {
+    const pct = total > 0 ? d.value / total : 0;
+    const len = animated ? pct * circ : 0;
+    const gap = circ - len;
+    const rotate = cumPct * 360 - 90;
+    cumPct += pct;
+    return { ...d, len, gap, rotate, color: colors[i % colors.length], pct: Math.round(pct * 100) };
+  });
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6">
+      <div className="relative flex-shrink-0">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          {total === 0 ? (
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth="18" />
+          ) : (
+            segments.map((s, i) => (
+              <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+                stroke={s.color} strokeWidth="18"
+                strokeDasharray={`${s.len} ${s.gap}`}
+                transform={`rotate(${s.rotate} ${cx} ${cy})`}
+                style={{ transition: `stroke-dasharray 0.9s cubic-bezier(.4,0,.2,1) ${i * 0.12}s` }}
+                strokeLinecap="round"
+              />
+            ))
+          )}
+          <text x={cx} y={cy - 7} textAnchor="middle" fontSize="22" fontWeight="800" fill="#0d1035">{total}</text>
+          <text x={cx} y={cy + 11} textAnchor="middle" fontSize="11" fill="#9ca3af">총 응답</text>
+        </svg>
+      </div>
+      <div className="flex flex-col gap-2 w-full">
+        {segments.map((s, i) => (
+          <div key={i} className="flex items-center gap-2.5">
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+            <span className="text-[12.5px] text-[#374151] flex-1 truncate">{s.label}</span>
+            <span className="text-[12px] font-bold text-[#0d1035]">{s.value}<span className="font-normal text-[#9ca3af] text-[10.5px]">건</span></span>
+            <span className="text-[11px] font-semibold rounded-full px-1.5 py-0.5 text-white" style={{ backgroundColor: s.color }}>{s.pct}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 라인 차트
+function LineChart({ data, maxVal }: { data: { date: string; count: number }[]; maxVal: number }) {
+  const [animated, setAnimated] = useState(false);
+  const pathRef = useRef<SVGPathElement>(null);
+  const [pathLen, setPathLen] = useState(0);
+  useEffect(() => { const t = setTimeout(() => setAnimated(true), 150); return () => clearTimeout(t); }, []);
+  useEffect(() => { if (pathRef.current) setPathLen(pathRef.current.getTotalLength()); }, [data]);
+
+  if (data.length === 0) return null;
+  const W = 560; const H = 110;
+  const padL = 28; const padR = 10; const padT = 10; const padB = 24;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const n = data.length;
+
+  const px = (i: number) => padL + (n > 1 ? (i / (n - 1)) * chartW : chartW / 2);
+  const py = (v: number) => padT + chartH - (maxVal > 0 ? (v / maxVal) * chartH : 0);
+
+  const linePath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(d.count).toFixed(1)}`).join(" ");
+  const areaPath = linePath + ` L ${px(n - 1).toFixed(1)} ${(padT + chartH).toFixed(1)} L ${px(0).toFixed(1)} ${(padT + chartH).toFixed(1)} Z`;
+
+  const yTicks = [0, Math.ceil(maxVal / 2), maxVal];
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  return (
+    <div className="relative w-full" style={{ height: H }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full overflow-visible">
+        <defs>
+          <linearGradient id="lgArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4f52e8" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#4f52e8" stopOpacity="0" />
+          </linearGradient>
+          <clipPath id="lineClip">
+            <rect x={padL} y={0} width={animated ? chartW + padR : 0} height={H}
+              style={{ transition: "width 1.2s cubic-bezier(.4,0,.2,1)" }} />
+          </clipPath>
+        </defs>
+
+        {/* y축 점선 */}
+        {yTicks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={W - padR} y1={py(t)} y2={py(t)} stroke="#f3f4f6" strokeWidth="1" strokeDasharray="4 3" />
+            <text x={padL - 4} y={py(t) + 4} textAnchor="end" fontSize="9" fill="#c4c9d6">{t}</text>
+          </g>
+        ))}
+
+        {/* 영역 */}
+        <path d={areaPath} fill="url(#lgArea)" clipPath="url(#lineClip)" />
+
+        {/* 라인 */}
+        <path ref={pathRef} d={linePath} fill="none" stroke="#4f52e8" strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round" clipPath="url(#lineClip)" />
+
+        {/* 데이터 포인트 */}
+        {data.map((d, i) => (
+          <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: "default" }}>
+            <circle cx={px(i)} cy={py(d.count)} r="8" fill="transparent" />
+            {d.count > 0 && (
+              <circle cx={px(i)} cy={py(d.count)} r={hovered === i ? 5 : 3.5}
+                fill={hovered === i ? "#fff" : "#4f52e8"}
+                stroke="#4f52e8" strokeWidth="2"
+                style={{ transition: "r 0.15s, fill 0.15s", opacity: animated ? 1 : 0 }}
+              />
+            )}
+            {/* 툴팁 */}
+            {hovered === i && (
+              <g>
+                <rect x={px(i) - 28} y={py(d.count) - 30} width="56" height="20" rx="6" fill="#0d1035" />
+                <text x={px(i)} y={py(d.count) - 16} textAnchor="middle" fontSize="10.5" fontWeight="600" fill="#fff">
+                  {d.date.slice(5)} · {d.count}건
+                </text>
+              </g>
+            )}
+          </g>
+        ))}
+
+        {/* x축 날짜 */}
+        {[0, Math.floor(n / 4), Math.floor(n / 2), Math.floor((n * 3) / 4), n - 1].map((i) => data[i] && (
+          <text key={i} x={px(i)} y={H - 4} textAnchor="middle" fontSize="9" fill="#c4c9d6">{data[i].date.slice(5)}</text>
+        ))}
+      </svg>
     </div>
   );
 }
@@ -551,84 +719,69 @@ export default function AdminPage() {
                 <>
                   {/* 요약 카드 */}
                   <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    <StatCard label="총 설문 응답" value={surveyStats.total} sub="누적 응답 수" />
+                    <StatCard label="총 설문 응답" value={surveyStats.total} sub="누적 응답 수" accent="#4f52e8" />
                     <StatCard
                       label="질문 만족도 평균"
                       value={surveyStats.naturalnessAvg !== null ? `${surveyStats.naturalnessAvg}점` : "-"}
                       sub="5점 만점"
+                      accent="#059669"
                     />
-                    <StatCard label="개선 의견" value={surveyStats.feedbacks.length} sub="텍스트 피드백 수" />
+                    <StatCard label="개선 의견" value={surveyStats.feedbacks.length} sub="텍스트 피드백 수" accent="#7c3aed" />
                   </div>
 
                   {/* 차트 그리드 */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                    {/* 면접 목적 분포 */}
+                    {/* 면접 목적 — 도넛 차트 */}
                     <div className="bg-white rounded-2xl border border-[#e4e7ef] p-5 sm:p-6">
-                      <h2 className="text-[14px] font-semibold text-[#0d1035] mb-1">면접 목적</h2>
-                      <p className="text-[11.5px] text-[#9ca3af] mb-4">응답자 목적 분포</p>
+                      <h2 className="text-[14px] font-semibold text-[#0d1035] mb-0.5">면접 목적</h2>
+                      <p className="text-[11.5px] text-[#9ca3af] mb-5">응답자 목적 분포</p>
                       {purposeKeys.length === 0 ? (
-                        <p className="text-[13px] text-[#c4c9d6] text-center py-6">응답 데이터 없음</p>
+                        <p className="text-[13px] text-[#c4c9d6] text-center py-8">응답 데이터 없음</p>
                       ) : (
-                        <div className="space-y-3">
-                          {purposeKeys.map((key, i) => (
-                            <HBar key={key} label={key} count={surveyStats.purposeMap[key]} total={surveyStats.total} color={purposeColors[i % purposeColors.length]} />
-                          ))}
-                        </div>
+                        <DonutChart
+                          data={purposeKeys.map((k) => ({ label: k, value: surveyStats.purposeMap[k] }))}
+                          colors={purposeColors}
+                          total={surveyStats.total}
+                        />
                       )}
                     </div>
 
                     {/* 질문 만족도 분포 */}
                     <div className="bg-white rounded-2xl border border-[#e4e7ef] p-5 sm:p-6">
-                      <h2 className="text-[14px] font-semibold text-[#0d1035] mb-1">면접 질문 만족도</h2>
-                      <p className="text-[11.5px] text-[#9ca3af] mb-4">1 = 전혀 도움 안됨 · 5 = 매우 도움됨</p>
+                      <h2 className="text-[14px] font-semibold text-[#0d1035] mb-0.5">면접 질문 만족도</h2>
+                      <p className="text-[11.5px] text-[#9ca3af] mb-5">1점 = 전혀 도움 안됨 · 5점 = 매우 도움됨</p>
                       <div className="space-y-3">
-                        {[5, 4, 3, 2, 1].map((score) => (
+                        {[5, 4, 3, 2, 1].map((score, idx) => (
                           <HBar
                             key={score}
-                            label={score === 5 ? "5점" : score === 4 ? "4점" : score === 3 ? "3점" : score === 2 ? "2점" : "1점"}
+                            label={`${"★".repeat(score)}${"☆".repeat(5 - score)}`}
                             count={surveyStats.naturalnessMap[score] ?? 0}
                             total={Object.values(surveyStats.naturalnessMap).reduce((a, b) => a + b, 0)}
                             color={score >= 4 ? "#059669" : score === 3 ? "#d97706" : "#ef4444"}
+                            delay={idx * 80}
                           />
                         ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* 일별 응답 추이 */}
+                  {/* 일별 응답 추이 — 라인 차트 */}
                   <div className="bg-white rounded-2xl border border-[#e4e7ef] p-5 sm:p-6">
-                    <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-start sm:items-center justify-between gap-2 mb-5">
                       <div>
                         <h2 className="text-[14px] font-semibold text-[#0d1035]">일별 응답 추이</h2>
                         <p className="text-[11.5px] text-[#9ca3af] mt-0.5">최근 30일 · 총 {surveyStats.total}건</p>
                       </div>
-                      <span className="text-[12px] sm:text-[13px] font-bold text-[#4f52e8]">최대 {dailyMax}건/일</span>
+                      <div className="flex items-center gap-1.5 text-[12px] text-[#9ca3af]">
+                        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                          <circle cx="6" cy="6" r="5" stroke="#4f52e8" strokeWidth="1.5"/>
+                          <text x="6" y="9" textAnchor="middle" fontSize="7" fill="#4f52e8" fontWeight="bold">i</text>
+                        </svg>
+                        <span className="hidden sm:inline">점 위에 마우스를 올리면 상세 확인</span>
+                        <span className="text-[#4f52e8] font-semibold">최대 {dailyMax}건/일</span>
+                      </div>
                     </div>
-                    <div className="flex items-end gap-[3px] h-28 sm:h-32">
-                      {surveyStats.daily.map((d) => (
-                        <div key={d.date} className="flex-1 flex flex-col items-center group relative">
-                          <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
-                            <div className="bg-[#0d1035] text-white text-[10px] font-semibold rounded-lg px-2 py-1 whitespace-nowrap shadow-lg">
-                              {d.date.slice(5)} · {d.count}건
-                            </div>
-                            <div className="w-1.5 h-1.5 bg-[#0d1035] rotate-45 -mt-[3px]" />
-                          </div>
-                          <div
-                            className="w-full rounded-t-md transition-colors cursor-default"
-                            style={{
-                              height: `${Math.max((d.count / dailyMax) * 112, d.count > 0 ? 5 : 0)}px`,
-                              backgroundColor: d.count > 0 ? "#4f52e8" : "#f3f4f6",
-                              opacity: d.count > 0 ? 0.7 : 1,
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between mt-2 border-t border-[#f3f4f6] pt-2">
-                      <span className="text-[10.5px] text-[#9ca3af]">{surveyStats.daily[0]?.date.slice(5)}</span>
-                      <span className="text-[10.5px] text-[#9ca3af] hidden sm:block">막대 위에 마우스를 올리면 상세 확인</span>
-                      <span className="text-[10.5px] text-[#9ca3af]">{surveyStats.daily[surveyStats.daily.length - 1]?.date.slice(5)}</span>
-                    </div>
+                    <LineChart data={surveyStats.daily} maxVal={dailyMax} />
                   </div>
 
                   {/* 개선 의견 목록 */}
@@ -645,8 +798,9 @@ export default function AdminPage() {
                     ) : (
                       <div className="divide-y divide-[#f8f9fc] max-h-[400px] overflow-y-auto">
                         {surveyStats.feedbacks.map((f, i) => (
-                          <div key={f.id} className="px-4 sm:px-6 py-4 flex gap-3 sm:gap-4">
-                            <span className="text-[11px] font-bold text-[#9ca3af] w-5 flex-shrink-0 mt-0.5">#{i + 1}</span>
+                          <div key={f.id} className="px-4 sm:px-6 py-4 flex gap-3 sm:gap-4"
+                            style={{ animation: `fadeSlideIn 0.35s ease both`, animationDelay: `${i * 40}ms` }}>
+                            <span className="text-[11px] font-bold text-white bg-[#4f52e8] w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px]">{i + 1}</span>
                             <div className="flex-1">
                               <p className="text-[13px] text-[#374151] leading-relaxed">{f.feedback}</p>
                               <p className="text-[11px] text-[#c4c9d6] mt-1.5">
