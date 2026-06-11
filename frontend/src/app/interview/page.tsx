@@ -30,13 +30,8 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // 영상이 예기치 않게 paused 상태가 되면 즉시 재생 재개 (플레이 버튼 오버레이 방지)
-  const handlePause = () => {
-    const v = videoRef.current;
-    if (v && !v.ended) v.play().catch(() => {});
-  };
-
-  // 새 영상 src 설정 시 강제 재생 + Safari 네이티브 컨트롤 JS로 완전 제거
+  // 새 영상 src 설정 시 JS로 controls 제거 + 재생
+  // ※ onPause 핸들러 제거: pause → play() 호출 사이클이 Safari 오버레이 표시를 유발함
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -44,15 +39,6 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
     // JS 레벨에서 controls 강제 제거 (Safari는 React prop만으론 부족)
     v.controls = false;
     v.removeAttribute("controls");
-
-    // Safari: shadow DOM의 media controls 숨김
-    const style = document.createElement("style");
-    style.textContent = `
-      video::-webkit-media-controls { display: none !important; }
-      video::-webkit-media-controls-overlay-enclosure { display: none !important; }
-      video::-webkit-media-controls-overlay-play-button { display: none !important; }
-    `;
-    v.shadowRoot?.appendChild?.(style);
 
     if (lipVideoSrc) v.play().catch(() => {});
   }, [lipVideoSrc]);
@@ -79,7 +65,6 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
           onLoadedMetadata={() => { if (videoRef.current && onVideoMetadata) onVideoMetadata(videoRef.current.duration * 1000); }}
           onEnded={onVideoEnded}
           onError={onVideoEnded}
-          onPause={handlePause}
           className="absolute inset-0 w-full h-full object-cover object-center"
           style={{ pointerEvents: "none", WebkitAppearance: "none" } as React.CSSProperties}
           {...{ "x-webkit-airplay": "deny", "controlsList": "nodownload nofullscreen noremoteplayback", "webkit-playsinline": "" } as object}
