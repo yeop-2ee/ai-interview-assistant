@@ -2,13 +2,36 @@ import 'dotenv/config';
 import OpenAI from 'openai';
 import fs from 'fs';
 
-// ── Google Gemini API로 데이터 생성 ──────────────────────────────────────
-const generator = new OpenAI({
-  apiKey: process.env.GOOGLE_API_KEY,
-  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-});
-const GENERATOR_MODEL = process.env.GENERATOR_MODEL || 'gemini-2.0-flash';
+// ── 데이터 생성용 LLM (Gemini / OpenAI 전환 가능) ─────────────────────────
+// 1단계(질문 생성)와 2단계(꼬리질문 생성)에 서로 다른 모델을 쓸 수 있도록 분리.
+// STAGE1_*/STAGE2_*가 없으면 기존 GENERATOR_PROVIDER/MODEL로 폴백.
+function createGenerator(provider) {
+  return provider === 'openai'
+    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    : new OpenAI({
+        apiKey: process.env.GOOGLE_API_KEY,
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      });
+}
+
+const GENERATOR_PROVIDER = process.env.GENERATOR_PROVIDER || 'gemini';
+const GENERATOR_MODEL = process.env.GENERATOR_MODEL
+  || (GENERATOR_PROVIDER === 'openai' ? 'gpt-4o-mini' : 'gemini-2.0-flash');
+
+const STAGE1_PROVIDER = process.env.STAGE1_PROVIDER || GENERATOR_PROVIDER;
+const STAGE1_MODEL = process.env.STAGE1_MODEL
+  || (process.env.STAGE1_PROVIDER ? undefined : GENERATOR_MODEL)
+  || (STAGE1_PROVIDER === 'openai' ? 'gpt-4o-mini' : 'gemini-2.0-flash');
+const stage1Generator = createGenerator(STAGE1_PROVIDER);
+
+const STAGE2_PROVIDER = process.env.STAGE2_PROVIDER || GENERATOR_PROVIDER;
+const STAGE2_MODEL = process.env.STAGE2_MODEL
+  || (process.env.STAGE2_PROVIDER ? undefined : GENERATOR_MODEL)
+  || (STAGE2_PROVIDER === 'openai' ? 'gpt-4o-mini' : 'gemini-2.0-flash');
+const stage2Generator = createGenerator(STAGE2_PROVIDER);
 const DELAY_MS = Number(process.env.DELAY_MS) || 0;
+const LIMIT = Number(process.env.LIMIT) || Infinity;
+const OUTPUT_DIR = process.env.OUTPUT_DIR || 'data';
 
 // ── aiServer.js와 동일한 상수 ─────────────────────────────────────────────
 const STYLE_PERSONAS = {
@@ -217,7 +240,7 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
 
 // ── 꼬리질문 학습 데이터 생성 (신규) ─────────────────────────────────────
 // Gemini에게 질문+답변+꼬리질문 triplet을 한 번에 생성 요청
-async function generateFollowupTriplet(department, jobRole, level, style) {
+async function generateFollowupTriplet(department, jobRole, level, style, retries = 2) {
   const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
   const levelLabel = EXPERIENCE_MAP[level] || level;
   const keyword = getRandomKeyword(department, jobRole);
@@ -232,26 +255,37 @@ async function generateFollowupTriplet(department, jobRole, level, style) {
     `[followup 작성 규칙]\n` +
     `- answer 속에 등장하는 ${keyword} 관련 구체적인 단어·수치·경험을 정확히 짚어 한 단계 더 깊이 파고드는 질문일 것.\n` +
     `- 가능하면 "~라고 하셨는데," 처럼 답변 내용을 짧게 되짚는 자연스러운 연결 표현으로 시작한 뒤 핵심 질문을 이을 것 (전체 길이는 짧고 날카롭게).\n` +
+    `- 반드시 한 가지만 물어볼 것: "~하셨고, ~인지" "~했는데, ~었나요"처럼 두 가지 이상을 한 문장에 묶어 묻는 것 금지. 디테일 하나에만 집중.\n` +
+    `- 한 문장, 물음표(?) 하나로 끝낼 것.\n` +
+    `- 기술 용어·개념은 정확하게 사용할 것 (예: 대칭키/비대칭키 등 혼동 금지).\n` +
     `- 실제로 쓰이지 않는 어색한 조어·표현 금지, 자연스러운 한국어 존댓말만 사용.\n\n` +
-    `아래 JSON 형식으로만 응답하세요:\n` +
+    `반드시 아래와 같은 단일 JSON 객체 "하나만" 응답하세요. 배열([])이나 여러 개의 질문-답변 세트를 생성하지 마세요:\n` +
     `{"question":"면접 질문 (한 문장, 물음표로 끝)","answer":"지원자의 현실적인 답변 (3~5문장, ${keyword} 관련 구체적 경험 포함)","followup":"위 규칙을 따른 꼬리질문 (한 문장, 물음표로 끝)"}`;
 
-  const res = await generator.chat.completions.create({
-    model: GENERATOR_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.9,
-  });
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await stage2Generator.chat.completions.create({
+        model: STAGE2_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.9,
+      });
 
-  const raw = res.choices[0].message.content;
-  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-  const parsed = JSON.parse(stripped);
+      const raw = res.choices[0].message.content;
+      const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+      let parsed = JSON.parse(stripped);
+      if (Array.isArray(parsed)) parsed = parsed[0];
 
-  if (!parsed.question || !parsed.answer || !parsed.followup) throw new Error('불완전한 triplet');
-  if (!parsed.question.trim().endsWith('?')) throw new Error('question이 물음표로 끝나지 않음');
-  if (!parsed.followup.trim().endsWith('?')) throw new Error('followup이 물음표로 끝나지 않음');
-  if (parsed.answer.trim().length < 30) throw new Error('answer가 너무 짧음');
+      if (!parsed.question || !parsed.answer || !parsed.followup) throw new Error('불완전한 triplet');
+      if (!parsed.question.trim().endsWith('?')) throw new Error('question이 물음표로 끝나지 않음');
+      if (!parsed.followup.trim().endsWith('?')) throw new Error('followup이 물음표로 끝나지 않음');
+      if (parsed.answer.trim().length < 30) throw new Error('answer가 너무 짧음');
 
-  return { question: parsed.question.trim(), answer: parsed.answer.trim(), followup: parsed.followup.trim() };
+      return { question: parsed.question.trim(), answer: parsed.answer.trim(), followup: parsed.followup.trim() };
+    } catch (e) {
+      if (i === retries) throw e;
+      await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
 }
 
 // aiServer.js의 inference 프롬프트와 동일한 형식으로 학습 데이터 포맷
@@ -301,8 +335,8 @@ function validate(raw) {
 async function generateOne(prompt, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
-      const res = await generator.chat.completions.create({
-        model: GENERATOR_MODEL,
+      const res = await stage1Generator.chat.completions.create({
+        model: STAGE1_MODEL,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.85,
       });
@@ -319,17 +353,17 @@ async function generateOne(prompt, retries = 2) {
 
 function appendLine(line) {
   if (Math.random() < 0.1) {
-    fs.appendFileSync('data/eval.jsonl', line + '\n', 'utf8');
+    fs.appendFileSync(`${OUTPUT_DIR}/eval.jsonl`, line + '\n', 'utf8');
     return 'eval';
   } else {
-    fs.appendFileSync('data/train.jsonl', line + '\n', 'utf8');
+    fs.appendFileSync(`${OUTPUT_DIR}/train.jsonl`, line + '\n', 'utf8');
     return 'train';
   }
 }
 
 // ── 메인 ─────────────────────────────────────────────────────────────────
 async function main() {
-  if (!fs.existsSync('data')) fs.mkdirSync('data');
+  if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   // ── 1단계: 질문 생성 (기존 로직) ─────────────────────────────────────
   const combinations = [];
@@ -352,16 +386,17 @@ async function main() {
     [combinations[i], combinations[j]] = [combinations[j], combinations[i]];
   }
 
-  const doneFile = 'data/done.txt';
+  const doneFile = `${OUTPUT_DIR}/done.txt`;
   const done = new Set(
     fs.existsSync(doneFile)
       ? fs.readFileSync(doneFile, 'utf8').split('\n').filter(Boolean)
       : []
   );
-  const remaining = combinations.filter(
+  let remaining = combinations.filter(
     ({ dept, jobRole, company, level, style, type }) =>
       !done.has(`${dept}|${jobRole}|${company}|${level}|${style}|${type}`)
   );
+  if (LIMIT < remaining.length) remaining = remaining.slice(0, LIMIT);
 
   console.log(`\n[1단계] 면접 질문 생성`);
   console.log(`총 ${combinations.length}개 조합 중 ${done.size}개 완료, ${remaining.length}개 남음\n`);
@@ -422,13 +457,14 @@ async function main() {
   // 인덱스가 아닌 조합 내용 기반 키로 추적 (학과 추가로 조합 구조가 바뀌어도 안전)
   const comboKey = ({ dept, jobRole, style, level, r }) => `${dept}|${jobRole}|${style}|${level}|${r}`;
 
-  const doneFFile = 'data/done_followup.txt';
+  const doneFFile = `${OUTPUT_DIR}/done_followup.txt`;
   const doneF = new Set(
     fs.existsSync(doneFFile)
       ? fs.readFileSync(doneFFile, 'utf8').split('\n').filter(Boolean)
       : []
   );
-  const remainingF = followupCombos.filter((c) => !doneF.has(comboKey(c)));
+  let remainingF = followupCombos.filter((c) => !doneF.has(comboKey(c)));
+  if (LIMIT < remainingF.length) remainingF = remainingF.slice(0, LIMIT);
 
   console.log(`\n[2단계] 꼬리질문 학습 데이터 생성`);
   console.log(`총 ${followupCombos.length}개 중 ${doneF.size}개 완료, ${remainingF.length}개 남음\n`);
@@ -460,11 +496,11 @@ async function main() {
   }
 
   // ── 최종 요약 ─────────────────────────────────────────────────────────
-  const trainLines = fs.existsSync('data/train.jsonl')
-    ? fs.readFileSync('data/train.jsonl', 'utf8').split('\n').filter(Boolean).length
+  const trainLines = fs.existsSync(`${OUTPUT_DIR}/train.jsonl`)
+    ? fs.readFileSync(`${OUTPUT_DIR}/train.jsonl`, 'utf8').split('\n').filter(Boolean).length
     : 0;
-  const evalLines = fs.existsSync('data/eval.jsonl')
-    ? fs.readFileSync('data/eval.jsonl', 'utf8').split('\n').filter(Boolean).length
+  const evalLines = fs.existsSync(`${OUTPUT_DIR}/eval.jsonl`)
+    ? fs.readFileSync(`${OUTPUT_DIR}/eval.jsonl`, 'utf8').split('\n').filter(Boolean).length
     : 0;
 
   console.log(`\n완료`);
