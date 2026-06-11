@@ -81,6 +81,20 @@ video::-webkit-media-controls-overlay {
   background: transparent !important;
 }
 
+/* Safari: overlay enclosure + status indicator 완전 숨김 */
+video::-webkit-media-controls-overlay-enclosure,
+video::-webkit-media-controls-status-display,
+video::-webkit-media-controls-wireless-playback-picker-button,
+video::-webkit-media-controls-picture-in-picture-button {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+video {
+  -webkit-appearance: none !important;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

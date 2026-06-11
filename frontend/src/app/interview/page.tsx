@@ -66,14 +66,14 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
           onError={onVideoEnded}
           onPause={handlePause}
           className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ pointerEvents: "none", WebkitMediaControls: "none" } as React.CSSProperties}
-          {...{ "x-webkit-airplay": "deny", "controlsList": "nodownload nofullscreen noremoteplayback" } as object}
+          style={{ pointerEvents: "none", WebkitAppearance: "none" } as React.CSSProperties}
+          {...{ "x-webkit-airplay": "deny", "controlsList": "nodownload nofullscreen noremoteplayback", "webkit-playsinline": "" } as object}
         />
       )}
       {/* 마우스 이벤트 완전 차단 오버레이 — 브라우저 hover/click 으로 인한 컨트롤 UI 차단 */}
       <div
         className="absolute inset-0"
-        style={{ pointerEvents: "all", zIndex: 20, background: "transparent", cursor: "default" }}
+        style={{ pointerEvents: "all", zIndex: 9999, background: "transparent", cursor: "default" }}
         onContextMenu={(e) => e.preventDefault()}
       />
     </div>
