@@ -29,35 +29,33 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
   avatarSrc?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number>(0);
 
-  // 새 영상 src 설정 시 JS로 controls 제거 + 재생
+  // video → canvas로 프레임 복사 (Safari native controls가 붙을 video 엘리먼트를 화면 밖으로 숨김)
   useEffect(() => {
     const v = videoRef.current;
-    if (!v) return;
+    const c = canvasRef.current;
+    if (!v || !c) return;
 
     v.controls = false;
     v.removeAttribute("controls");
 
-    if (lipVideoSrc) v.play().catch(() => {});
-  }, [lipVideoSrc]);
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
 
-  // Safari "Now Playing" 미디어 세션 제거
-  // 창이 포커스를 잃을 때 OS/Safari가 시스템 레벨 재생 오버레이를 띄우는 것을 방지
-  useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    const ms = navigator.mediaSession;
-    ms.metadata = null;
-    ms.playbackState = "none";
-    // 시스템 미디어 컨트롤 액션 핸들러 모두 비활성화
-    const actions: MediaSessionAction[] = ["play", "pause", "stop", "seekbackward", "seekforward", "previoustrack", "nexttrack"];
-    actions.forEach((action) => {
-      try { ms.setActionHandler(action, null); } catch {}
-    });
-    return () => {
-      ms.metadata = null;
-      ms.playbackState = "none";
+    const draw = () => {
+      if (v.readyState >= 2 && !v.paused && !v.ended) {
+        ctx.drawImage(v, 0, 0, c.width, c.height);
+      }
+      rafRef.current = requestAnimationFrame(draw);
     };
-  }, []);
+    rafRef.current = requestAnimationFrame(draw);
+
+    if (lipVideoSrc) v.play().catch(() => {});
+
+    return () => { cancelAnimationFrame(rafRef.current); };
+  }, [lipVideoSrc]);
 
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ userSelect: "none" }}>
@@ -68,33 +66,33 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
         draggable={false}
       />
       {lipVideoSrc && (
-        <video
-          ref={videoRef}
-          key={lipVideoSrc}
-          src={lipVideoSrc}
-          autoPlay
-          playsInline
-          muted={false}
-          controls={false}
-          disablePictureInPicture
-          disableRemotePlayback
-          onLoadedMetadata={() => { if (videoRef.current && onVideoMetadata) onVideoMetadata(videoRef.current.duration * 1000); }}
-          onEnded={onVideoEnded}
-          onError={onVideoEnded}
-          className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ pointerEvents: "none", WebkitAppearance: "none" } as React.CSSProperties}
-          {...{ "x-webkit-airplay": "deny", "controlsList": "nodownload nofullscreen noremoteplayback", "webkit-playsinline": "" } as object}
-        />
+        <>
+          {/* video는 화면 밖 — 오디오 재생 + 프레임 소스 역할만, Safari controls 노출 불가 */}
+          <video
+            ref={videoRef}
+            key={lipVideoSrc}
+            src={lipVideoSrc}
+            autoPlay
+            playsInline
+            muted={false}
+            controls={false}
+            disablePictureInPicture
+            disableRemotePlayback
+            onLoadedMetadata={() => { if (videoRef.current && onVideoMetadata) onVideoMetadata(videoRef.current.duration * 1000); }}
+            onEnded={onVideoEnded}
+            onError={onVideoEnded}
+            style={{ position: "absolute", left: "-9999px", width: "1px", height: "1px", opacity: 0 }}
+            {...{ "x-webkit-airplay": "deny", "controlsList": "nodownload nofullscreen noremoteplayback", "webkit-playsinline": "" } as object}
+          />
+          {/* canvas가 실제 영상 표시 — native controls 절대 안 붙음 */}
+          <canvas
+            ref={canvasRef}
+            width={1280}
+            height={720}
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+        </>
       )}
-      {/* 마우스/터치 이벤트 완전 차단 오버레이 — Safari 네이티브 컨트롤 트리거 방지 */}
-      <div
-        className="absolute inset-0"
-        style={{ pointerEvents: "all", zIndex: 9999, background: "transparent", cursor: "default" }}
-        onContextMenu={(e) => e.preventDefault()}
-        onTouchStart={(e) => e.preventDefault()}
-        onTouchEnd={(e) => e.preventDefault()}
-        onClick={(e) => e.preventDefault()}
-      />
     </div>
   );
 }
