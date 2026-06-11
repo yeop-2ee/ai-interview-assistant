@@ -52,9 +52,41 @@ _frame_cache = {}  # face_path → resized frame (ndarray)
 _lock = threading.Lock()
 
 
+def _patch_torchvision_compat():
+    """torchvision >= 0.16에서 제거된 functional_tensor 호환성 패치 (basicsr/facexlib용)"""
+    import sys
+    import types
+    if 'torchvision.transforms.functional_tensor' not in sys.modules:
+        try:
+            import torchvision.transforms.functional as _tvf
+            _ft = types.ModuleType('torchvision.transforms.functional_tensor')
+            for _attr in dir(_tvf):
+                if not _attr.startswith('_'):
+                    setattr(_ft, _attr, getattr(_tvf, _attr))
+            sys.modules['torchvision.transforms.functional_tensor'] = _ft
+        except Exception:
+            pass
+
+
+def _patch_torchvision_compat():
+    """torchvision >= 0.16에서 제거된 functional_tensor 호환성 패치 (basicsr/facexlib용)"""
+    import sys, types
+    if 'torchvision.transforms.functional_tensor' not in sys.modules:
+        try:
+            import torchvision.transforms.functional as _tvf
+            _ft = types.ModuleType('torchvision.transforms.functional_tensor')
+            for _attr in dir(_tvf):
+                if not _attr.startswith('_'):
+                    setattr(_ft, _attr, getattr(_tvf, _attr))
+            sys.modules['torchvision.transforms.functional_tensor'] = _ft
+        except Exception:
+            pass
+
+
 def load_gfpgan_model(model_path):
     """GFPGAN 모델 로드 — 설치되지 않았거나 모델 파일 없으면 None 반환"""
     try:
+        _patch_torchvision_compat()
         from gfpgan import GFPGANer
         restorer = GFPGANer(
             model_path=model_path,
