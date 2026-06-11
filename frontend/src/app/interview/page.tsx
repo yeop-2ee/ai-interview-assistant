@@ -44,9 +44,29 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
     const ctx = c.getContext("2d");
     if (!ctx) return;
 
+    // 비디오 로드 후 canvas 크기를 영상 원본 비율에 맞춤
+    const onMeta = () => {
+      if (v.videoWidth && v.videoHeight) {
+        c.width = v.videoWidth;
+        c.height = v.videoHeight;
+      }
+    };
+    v.addEventListener("loadedmetadata", onMeta, { once: true });
+    if (v.videoWidth) onMeta();
+
     const draw = () => {
       if (v.readyState >= 2 && !v.paused && !v.ended) {
-        ctx.drawImage(v, 0, 0, c.width, c.height);
+        // object-fit: cover — 비율 유지하며 canvas 채우기
+        const vw = v.videoWidth || c.width;
+        const vh = v.videoHeight || c.height;
+        const cw = c.width;
+        const ch = c.height;
+        const scale = Math.max(cw / vw, ch / vh);
+        const sw = vw * scale;
+        const sh = vh * scale;
+        const dx = (cw - sw) / 2;
+        const dy = (ch - sh) / 2;
+        ctx.drawImage(v, dx, dy, sw, sh);
       }
       rafRef.current = requestAnimationFrame(draw);
     };
