@@ -41,9 +41,15 @@ function startWav2LipServer() {
     if (d.includes(`WAV2LIP_SERVER_READY:${W2L_SERVER_PORT}`)) {
       w2lServerReady = true;
       console.log('[Wav2Lip] 상시 서버 기동 완료');
+    } else {
+      const msg = d.trim();
+      if (msg) console.log(`[Wav2Lip] ${msg}`);
     }
   });
-  w2lServerProc.stderr.on('data', () => {}); // 모델 로딩 로그 억제
+  w2lServerProc.stderr.on('data', (d) => {
+    const msg = d.trim();
+    if (msg) console.error(`[Wav2Lip:err] ${msg}`);
+  });
   w2lServerProc.on('exit', () => {
     w2lServerReady = false;
     w2lServerProc = null;
