@@ -102,8 +102,8 @@ def load_gfpgan_model(model_path):
         return None
 
 
-def enhance_frame_gfpgan(restorer, frame):
-    """GFPGAN으로 프레임 얼굴 화질 복원. 실패 시 원본 반환"""
+def enhance_image_gfpgan(restorer, frame):
+    """GFPGAN으로 이미지 화질 복원 — 아바타 캐싱 시 1회만 호출"""
     try:
         _, _, restored = restorer.enhance(
             frame,
@@ -113,8 +113,11 @@ def enhance_frame_gfpgan(restorer, frame):
             weight=0.9,
         )
         if restored is None:
-            print("[GFPGAN] enhance 결과 None — 원본 사용", flush=True)
             return frame
+        # 원본 크기 보정 (GFPGAN이 미세하게 크기를 바꿀 수 있음)
+        h, w = frame.shape[:2]
+        if restored.shape[0] != h or restored.shape[1] != w:
+            restored = cv2.resize(restored, (w, h))
         return restored
     except Exception as e:
         print(f"[GFPGAN] enhance 실패: {e}", flush=True)
@@ -131,7 +134,7 @@ def load_wav2lip_model(checkpoint_path):
 
 
 def load_and_resize_frame(face_path):
-    """이미지 로드 후 MAX_FRAME_WIDTH 이하로 리사이즈 (캐시됨)"""
+    """이미지 로드 후 MAX_FRAME_WIDTH 이하로 리사이즈, GFPGAN 화질 복원 1회 적용 (캐시됨)"""
     if face_path in _frame_cache:
         return _frame_cache[face_path]
 
@@ -142,6 +145,12 @@ def load_and_resize_frame(face_path):
     if w > MAX_FRAME_WIDTH:
         scale = MAX_FRAME_WIDTH / w
         frame = cv2.resize(frame, (MAX_FRAME_WIDTH, int(h * scale)))
+
+    # GFPGAN으로 아바타 이미지 화질 복원 (1회, 캐시되므로 이후 요청엔 비용 없음)
+    if _gfpgan is not None:
+        frame = enhance_image_gfpgan(_gfpgan, frame)
+        print(f"[GFPGAN] 아바타 화질 복원 완료: {os.path.basename(face_path)}", flush=True)
+
     _frame_cache[face_path] = frame
     return frame
 
@@ -257,10 +266,6 @@ def synthesize(face_path, audio_path, output_path):
             orig = f[cy1:cy2, cx1:cx2].astype(np.float32)
             blended = (p_resized.astype(np.float32) * mask3 + orig * (1.0 - mask3)).astype(np.uint8)
             f[cy1:cy2, cx1:cx2] = blended
-
-            # GFPGAN 화질 복원 (모델 로드된 경우)
-            if _gfpgan is not None:
-                f = enhance_frame_gfpgan(_gfpgan, f)
 
             ffmpeg_proc.stdin.write(f.tobytes())
 
