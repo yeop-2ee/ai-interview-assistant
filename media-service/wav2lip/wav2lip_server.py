@@ -78,10 +78,14 @@ def enhance_frame_gfpgan(restorer, frame):
             has_aligned=False,
             only_center_face=True,
             paste_back=True,
-            weight=0.5,   # 0=원본, 1=완전복원 — 0.5로 자연스럽게 블렌딩
+            weight=0.9,
         )
-        return restored if restored is not None else frame
-    except Exception:
+        if restored is None:
+            print("[GFPGAN] enhance 결과 None — 원본 사용", flush=True)
+            return frame
+        return restored
+    except Exception as e:
+        print(f"[GFPGAN] enhance 실패: {e}", flush=True)
         return frame
 
 
@@ -247,6 +251,7 @@ def synthesize(face_path, audio_path, output_path):
 
     ffmpeg_proc.stdin.close()
     ffmpeg_proc.wait()
+    print(f"[Wav2Lip] synthesize 완료 — GFPGAN {'적용' if _gfpgan else '미적용'}", flush=True)
 
 
 class Handler(BaseHTTPRequestHandler):
