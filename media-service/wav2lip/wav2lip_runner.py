@@ -26,7 +26,7 @@ def run_wav2lip(face_path, audio_path, output_path):
         "--face", face_path,
         "--audio", audio_path,
         "--outfile", output_path,
-        "--resize_factor", "2",
+        "--resize_factor", "1",
         "--nosmooth",
         "--face_det_batch_size", "16",
         "--wav2lip_batch_size", "256",

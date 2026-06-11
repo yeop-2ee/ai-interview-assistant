@@ -184,10 +184,11 @@ def synthesize(face_path, audio_path, output_path):
 
     out_writer.release()
 
-    # AVI(MJPG) + 오디오 → MP4
+    # AVI(MJPG) + 오디오 → MP4 (화질 향상: CRF 18, 샤프닝 필터 적용)
     subprocess.run(
         ['ffmpeg', '-y', '-i', tmp_avi, '-i', audio_path,
-         '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+         '-vf', 'unsharp=3:3:1.0:3:3:0.0',
+         '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
          '-c:a', 'aac', '-shortest', output_path],
         capture_output=True
     )
