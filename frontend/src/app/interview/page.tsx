@@ -31,17 +31,33 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // 새 영상 src 설정 시 JS로 controls 제거 + 재생
-  // ※ onPause 핸들러 제거: pause → play() 호출 사이클이 Safari 오버레이 표시를 유발함
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
 
-    // JS 레벨에서 controls 강제 제거 (Safari는 React prop만으론 부족)
     v.controls = false;
     v.removeAttribute("controls");
 
     if (lipVideoSrc) v.play().catch(() => {});
   }, [lipVideoSrc]);
+
+  // Safari "Now Playing" 미디어 세션 제거
+  // 창이 포커스를 잃을 때 OS/Safari가 시스템 레벨 재생 오버레이를 띄우는 것을 방지
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const ms = navigator.mediaSession;
+    ms.metadata = null;
+    ms.playbackState = "none";
+    // 시스템 미디어 컨트롤 액션 핸들러 모두 비활성화
+    const actions: MediaSessionAction[] = ["play", "pause", "stop", "seekbackward", "seekforward", "previoustrack", "nexttrack"];
+    actions.forEach((action) => {
+      try { ms.setActionHandler(action, null); } catch {}
+    });
+    return () => {
+      ms.metadata = null;
+      ms.playbackState = "none";
+    };
+  }, []);
 
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ userSelect: "none" }}>
