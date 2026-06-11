@@ -51,14 +51,13 @@ type SurveyStats = {
   daily: { date: string; count: number }[];
 };
 
-// 숫자 카운트업 애니메이션 카드
-function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
+function StatCard({ label, value, sub, accent, animate }: { label: string; value: string | number; sub?: string; accent?: string; animate?: boolean }) {
   const isNum = typeof value === "number";
   const [displayed, setDisplayed] = useState(0);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!isNum) return;
+    if (!isNum || !animate) return;
     const target = value as number;
     const duration = 900;
     const start = performance.now();
@@ -70,14 +69,14 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [value, isNum]);
+  }, [value, isNum, animate]);
 
   return (
     <div className="bg-white rounded-2xl border border-[#e4e7ef] px-4 sm:px-6 py-5 sm:py-6 flex flex-col gap-1 relative overflow-hidden">
       <div className="absolute inset-0 opacity-[0.03]" style={{ background: `radial-gradient(circle at 80% 20%, ${accent ?? "#4f52e8"}, transparent 70%)` }} />
       <p className="text-[11px] sm:text-[11.5px] text-[#9ca3af] font-medium">{label}</p>
       <p className="text-[26px] sm:text-[32px] font-bold leading-none" style={{ color: accent ?? "#0d1035" }}>
-        {isNum ? displayed.toLocaleString() : value}
+        {isNum ? (animate ? displayed.toLocaleString() : (value as number).toLocaleString()) : value}
       </p>
       {sub && <p className="text-[11px] sm:text-[11.5px] text-[#9ca3af] mt-0.5">{sub}</p>}
     </div>
@@ -754,7 +753,7 @@ export default function AdminPage() {
                         {[5, 4, 3, 2, 1].map((score, idx) => (
                           <HBar
                             key={score}
-                            label={`${"★".repeat(score)}${"☆".repeat(5 - score)}`}
+                            label={`${score}점`}
                             count={surveyStats.naturalnessMap[score] ?? 0}
                             total={Object.values(surveyStats.naturalnessMap).reduce((a, b) => a + b, 0)}
                             color={score >= 4 ? "#059669" : score === 3 ? "#d97706" : "#ef4444"}
