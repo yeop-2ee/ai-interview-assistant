@@ -36,10 +36,25 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
     if (v && !v.ended) v.play().catch(() => {});
   };
 
-  // 새 영상 src 설정 시 강제 재생
+  // 새 영상 src 설정 시 강제 재생 + Safari 네이티브 컨트롤 JS로 완전 제거
   useEffect(() => {
     const v = videoRef.current;
-    if (v && lipVideoSrc) v.play().catch(() => {});
+    if (!v) return;
+
+    // JS 레벨에서 controls 강제 제거 (Safari는 React prop만으론 부족)
+    v.controls = false;
+    v.removeAttribute("controls");
+
+    // Safari: shadow DOM의 media controls 숨김
+    const style = document.createElement("style");
+    style.textContent = `
+      video::-webkit-media-controls { display: none !important; }
+      video::-webkit-media-controls-overlay-enclosure { display: none !important; }
+      video::-webkit-media-controls-overlay-play-button { display: none !important; }
+    `;
+    v.shadowRoot?.appendChild?.(style);
+
+    if (lipVideoSrc) v.play().catch(() => {});
   }, [lipVideoSrc]);
 
   return (
@@ -70,11 +85,14 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
           {...{ "x-webkit-airplay": "deny", "controlsList": "nodownload nofullscreen noremoteplayback", "webkit-playsinline": "" } as object}
         />
       )}
-      {/* 마우스 이벤트 완전 차단 오버레이 — 브라우저 hover/click 으로 인한 컨트롤 UI 차단 */}
+      {/* 마우스/터치 이벤트 완전 차단 오버레이 — Safari 네이티브 컨트롤 트리거 방지 */}
       <div
         className="absolute inset-0"
         style={{ pointerEvents: "all", zIndex: 9999, background: "transparent", cursor: "default" }}
         onContextMenu={(e) => e.preventDefault()}
+        onTouchStart={(e) => e.preventDefault()}
+        onTouchEnd={(e) => e.preventDefault()}
+        onClick={(e) => e.preventDefault()}
       />
     </div>
   );
