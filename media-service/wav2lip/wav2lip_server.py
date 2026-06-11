@@ -142,14 +142,12 @@ def synthesize(face_path, audio_path, output_path):
     out_h, out_w = frame.shape[:2]
 
     # MJPG 중간 파일 제거 — raw BGR 프레임을 ffmpeg stdin으로 직접 파이프
-    # 손실 없는 중간 단계로 최종 화질 향상
     ffmpeg_proc = subprocess.Popen(
         ['ffmpeg', '-y',
          '-f', 'rawvideo', '-vcodec', 'rawvideo',
          '-s', f'{out_w}x{out_h}', '-pix_fmt', 'bgr24', '-r', str(fps),
          '-i', 'pipe:0',
          '-i', audio_path,
-         '-vf', 'unsharp=5:5:1.5:5:5:0.0',
          '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
          '-c:a', 'aac', '-shortest', output_path],
         stdin=subprocess.PIPE, stderr=subprocess.DEVNULL
@@ -172,9 +170,22 @@ def synthesize(face_path, audio_path, output_path):
         pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.0
         for p, f, c in zip(pred, frame_batch, coords_batch):
             cy1, cy2, cx1, cx2 = c
+            rh, rw = cy2 - cy1, cx2 - cx1
+
             # INTER_LANCZOS4: 96×96 → 원본 얼굴 크기 고품질 업스케일
-            p = cv2.resize(p.astype(np.uint8), (cx2 - cx1, cy2 - cy1), interpolation=cv2.INTER_LANCZOS4)
-            f[cy1:cy2, cx1:cx2] = p
+            p_resized = cv2.resize(p.astype(np.uint8), (rw, rh), interpolation=cv2.INTER_LANCZOS4)
+
+            # 경계면 페더링 블렌딩 — 합성 seam을 자연스럽게 처리
+            feather = max(5, min(rw, rh) // 10)
+            mask = np.zeros((rh, rw), dtype=np.float32)
+            mask[feather:rh - feather, feather:rw - feather] = 1.0
+            ksize = feather * 2 + 1
+            mask = cv2.GaussianBlur(mask, (ksize, ksize), feather * 0.6)
+            mask3 = mask[:, :, np.newaxis]
+
+            orig = f[cy1:cy2, cx1:cx2].astype(np.float32)
+            blended = (p_resized.astype(np.float32) * mask3 + orig * (1.0 - mask3)).astype(np.uint8)
+            f[cy1:cy2, cx1:cx2] = blended
             ffmpeg_proc.stdin.write(f.tobytes())
 
     for i, m in enumerate(mel_chunks):
