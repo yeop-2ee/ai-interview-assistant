@@ -8,6 +8,7 @@ import { useFaceAnalysis } from "@/hooks/useFaceAnalysis";
 import { INTERVIEW_INTRO_QUESTION, useInterviewQuestions } from "@/hooks/useInterviewQuestions";
 import { useCallMedia } from "@/hooks/useCallMedia";
 import { parseSSE } from "@/lib/sseStream"
+import { fetchWithRetry, sleep } from "@/lib/retry"
 import SurveyEmailModal from "@/components/SurveyEmailModal"
 import InterviewGuideModal from "@/components/InterviewGuideModal";
 
@@ -768,6 +769,7 @@ export default function InterviewPage() {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportStep, setReportStep] = useState("");
   const [reportReady, setReportReady] = useState(false);
+  const [reportFailed, setReportFailed] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
   const reportStartedRef = useRef(false);
   const [showReportSurveyModal, setShowReportSurveyModal] = useState(false);
@@ -851,23 +853,23 @@ export default function InterviewPage() {
     }
   }, [phase, messages]);
 
-  // 면접 종료 후 리포트 자동 생성
-  useEffect(() => {
-    if (phase !== "done") return;
-    if (reportStartedRef.current) return;
-    reportStartedRef.current = true;
-
+  // 면접 종료 후 리포트 생성 — 결과를 받을 때까지 재시도하고, 끝내 실패하면 다시 시도 버튼을 보여줌
+  // (결과 없이 리포트 페이지로 넘어가면 무한 로딩이 되므로 done을 받았을 때만 reportReady)
+  const generateReport = useCallback(async () => {
     const msgs = messagesRef.current;
     const aiQuestions = msgs.filter(m => m.role === "ai" && !m.text.includes("수고하셨습니다")).map(m => m.text);
     const userAnswers = msgs.filter(m => m.role === "user").map(m => m.text);
     const settings = JSON.parse(sessionStorage.getItem("interviewSettings") || "{}");
 
+    setReportFailed(false);
     setReportLoading(true);
+    setReportProgress(0);
     setReportStep("답변 분석 중...");
 
-    (async () => {
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const res = await fetch(`${BACKEND_URL}/ai/report`, {
+        const res = await fetchWithRetry(`${BACKEND_URL}/ai/report`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -878,13 +880,13 @@ export default function InterviewPage() {
             followupParentLabels: Object.fromEntries(followupParentLabelRef.current),
           }),
         });
+        if (!res.body) throw new Error("리포트 응답 없음");
 
-        if (!res.ok || !res.body) throw new Error("리포트 생성 실패");
-
+        let received = false;
         for await (const event of parseSSE(res)) {
           if (event.type === "progress") {
             setReportProgress((event.progress as number) ?? 0);
-            setReportStep((event.progress as number) < 50 ? "답변 분석 중..." : "리포트 작성 중...");
+            setReportStep((event.step as string) || ((event.progress as number) < 50 ? "답변 분석 중..." : "리포트 작성 중..."));
           } else if (event.type === "done") {
             sessionStorage.setItem("interviewReport", JSON.stringify({
               ...(event.data as object),
@@ -893,20 +895,36 @@ export default function InterviewPage() {
               categories: questionCategories,
               followupParentLabels: Object.fromEntries(followupParentLabelRef.current),
             }));
-            setReportReady(true);
+            received = true;
           } else if (event.type === "error") {
-            console.error("리포트 생성 오류 (SSE):", event.message);
-            setReportReady(true); // 에러여도 리포트 페이지 이동 가능
+            throw new Error(String(event.message ?? "리포트 생성 오류"));
           }
         }
-      } catch (e) {
-        console.error("리포트 생성 오류:", e);
-        setReportReady(true); // 실패해도 리포트 페이지 이동 가능
-      } finally {
+        if (!received) throw new Error("리포트 결과 없이 연결 종료");
+
+        setReportReady(true);
         setReportLoading(false);
+        return;
+      } catch (e) {
+        console.error(`리포트 생성 시도 ${attempt}/${MAX_ATTEMPTS} 실패:`, e);
+        if (attempt < MAX_ATTEMPTS) {
+          setReportProgress(0);
+          setReportStep(`리포트 다시 생성 중... (${attempt + 1}/${MAX_ATTEMPTS})`);
+          await sleep(3000 * attempt);
+        }
       }
-    })();
-  }, [phase]);
+    }
+    setReportLoading(false);
+    setReportFailed(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionCategories]);
+
+  useEffect(() => {
+    if (phase !== "done") return;
+    if (reportStartedRef.current) return;
+    reportStartedRef.current = true;
+    generateReport();
+  }, [phase, generateReport]);
 
   useEffect(() => {
     if (phase !== "done" || !reportLoading || reportSurveyShownRef.current) return;
@@ -1009,7 +1027,7 @@ export default function InterviewPage() {
       const form = new FormData();
       form.append("audio", blob, "answer.webm");
       try {
-        const r = await fetch(`${MEDIA_API}/api/stt/transcribe`, { method: "POST", body: form });
+        const r = await fetchWithRetry(`${MEDIA_API}/api/stt/transcribe`, { method: "POST", body: form });
         const data = await r.json();
         const text = (data.text ?? "").trim()
           .replace(/[\(\[（【][^\)\]）】]{0,20}[\)\]）】]?/g, "")
@@ -1135,7 +1153,7 @@ export default function InterviewPage() {
     // 2. fallback: TTS API
     try {
       setAiSpeaking(true);
-      const res = await fetch(`${MEDIA_API}/api/tts/synthesize`, {
+      const res = await fetchWithRetry(`${MEDIA_API}/api/tts/synthesize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, voice: getTtsVoice() }),
@@ -1217,7 +1235,7 @@ export default function InterviewPage() {
     if (additionalVideosRef.current[INTERVIEW_INTRO_QUESTION]) return;
     (async () => {
       try {
-        const res = await fetch(`${MEDIA_API}/api/wav2lip/synthesize`, {
+        const res = await fetchWithRetry(`${MEDIA_API}/api/wav2lip/synthesize`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1226,7 +1244,7 @@ export default function InterviewPage() {
             voice: getTtsVoice(),
             imagePath: avatarSrc,
           }),
-        });
+        }, { attempts: 2 });
         const data = await res.json();
         if (data.success && data.videoPath) {
           additionalVideosRef.current[INTERVIEW_INTRO_QUESTION] = `${MEDIA_API}${data.videoPath}`;
@@ -1567,11 +1585,23 @@ export default function InterviewPage() {
                     />
                   </div>
                 </>
+              ) : reportFailed ? (
+                <p className="text-[13px] text-[#6b7280] text-center">
+                  리포트 생성이 지연되고 있습니다. 면접 기록은 그대로 남아 있으니 다시 시도해 주세요.
+                </p>
               ) : (
                 <p className="text-[13px] text-[#6b7280]">
                   {reportReady ? "면접이 종료되었습니다. 수고하셨습니다!" : "잠시 대기 중..."}
                 </p>
               )}
+              {reportFailed ? (
+                <button
+                  onClick={generateReport}
+                  className="inline-flex items-center gap-2 font-semibold px-8 py-2.5 rounded-xl transition-colors text-[14px] bg-[#4f52e8] hover:bg-[#3e41d4] text-white"
+                >
+                  리포트 다시 생성
+                </button>
+              ) : (
               <button
                 onClick={() => reportReady && router.push("/report")}
                 disabled={!reportReady}
@@ -1588,6 +1618,7 @@ export default function InterviewPage() {
                   <>결과 리포트 보기 <IconArrowRight /></>
                 )}
               </button>
+              )}
             </div>
           ) : pendingAnswer !== null ? (
             /* 답변 검토 패널 */
@@ -1646,7 +1677,7 @@ export default function InterviewPage() {
                     if (!followupTextsRef.current.has(currentQ)) {
                       try {
                         const settings = JSON.parse(sessionStorage.getItem("interviewSettings") || "{}");
-                        const fRes = await fetch(`${BACKEND_URL}/ai/followup`, {
+                        const fRes = await fetchWithRetry(`${BACKEND_URL}/ai/followup`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
@@ -1681,11 +1712,11 @@ export default function InterviewPage() {
                     // 다음 말할 텍스트의 영상이 없으면 지금 생성
                     if (nextSpeakText && !additionalVideosRef.current[nextSpeakText]) {
                       try {
-                        const vRes = await fetch(`${MEDIA_API}/api/wav2lip/synthesize`, {
+                        const vRes = await fetchWithRetry(`${MEDIA_API}/api/wav2lip/synthesize`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ text: nextSpeakText, sessionId, voice: getTtsVoice(), imagePath: avatarSrcRef.current }),
-                        });
+                        }, { attempts: 2 });
                         const vData = await vRes.json();
                         if (vData.success && vData.videoPath) {
                           additionalVideosRef.current[nextSpeakText] = `${MEDIA_API}${vData.videoPath}`;

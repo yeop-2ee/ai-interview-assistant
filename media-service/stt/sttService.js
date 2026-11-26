@@ -4,6 +4,7 @@ const multer = require('multer');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { withRetry } = require('../lib/retry');
 
 const router = express.Router();
 const upload = multer({
@@ -67,7 +68,8 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
   try {
     const fileSizeKB = (req.file.size / 1024).toFixed(1);
     console.log(`[STT] 요청: ${req.file.originalname} (${fileSizeKB} KB)`);
-    const result = await runTranscribe(tmpPath);
+    // 무음이면 빈 텍스트로 정상 반환되므로, 재시도는 Whisper 실행 자체가 실패했을 때만 일어남
+    const result = await withRetry('STT', () => runTranscribe(tmpPath));
     console.log(`[STT] 결과: "${result.text}" (raw: "${result.raw}")`);
     res.json({ success: true, text: result.text });
   } catch (err) {

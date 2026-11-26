@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { parseSSE } from "@/lib/sseStream";
+import { fetchWithRetry, sleep } from "@/lib/retry";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
@@ -75,15 +76,16 @@ export function useInterviewQuestions() {
       style: resolvedStyle,
     };
 
+    const MAX_ATTEMPTS = 3;
     const tryFetch = async (attempt: number): Promise<void> => {
       try {
-        const res = await fetch(`${BACKEND_URL}/interview/questions`, {
+        const res = await fetchWithRetry(`${BACKEND_URL}/interview/questions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
 
-        if (!res.ok || !res.body) throw new Error(`서버 오류: ${res.status}`);
+        if (!res.body) throw new Error("질문 응답 없음");
 
         for await (const event of parseSSE(res)) {
           if (event.type === "progress") {
@@ -97,14 +99,17 @@ export function useInterviewQuestions() {
               )
             );
           } else if (event.type === "done") {
-            const aiQuestions = event.questions as string[];
-            if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
+            const aiQuestions = Array.isArray(event.questions) ? event.questions as string[] : [];
+            // 최소 질문 수 (AI 질문 5개) 미달이면 마지막 시도가 아닌 한 다시 생성
+            if (aiQuestions.length < 5 && attempt < MAX_ATTEMPTS) {
+              throw new Error(`질문 ${aiQuestions.length}개만 생성됨`);
+            }
+            if (aiQuestions.length > 0) {
               const merged = [INTERVIEW_INTRO_QUESTION, ...aiQuestions];
               setQuestions(merged);
               questionsRef.current = merged;
               const cats = Array.isArray(event.categories) ? event.categories as string[] : [];
               setQuestionCategories(["소개", ...cats]);
-              // 최소 질문 수 (자기소개 포함 6개) 미달 시 에러
               if (merged.length < 6) setQuestionError(true);
             } else {
               setQuestionError(true);
@@ -112,12 +117,16 @@ export function useInterviewQuestions() {
             setQuestionsProgress(100);
             setQuestionsStep("완료!");
             setTimeout(() => setQuestionsLoading(false), 400);
+            return;
           }
         }
+        throw new Error("질문 결과 없이 연결 종료");
       } catch (e) {
-        if (attempt < 2) {
-          // 1회 자동 재시도
-          setQuestionsStep("재시도 중...");
+        if (attempt < MAX_ATTEMPTS) {
+          console.warn(`[질문 생성] 시도 ${attempt}/${MAX_ATTEMPTS} 실패:`, e);
+          setQuestionsProgress(0);
+          setQuestionsStep(`질문 다시 생성 중... (${attempt + 1}/${MAX_ATTEMPTS})`);
+          await sleep(2000 * attempt);
           await tryFetch(attempt + 1);
         } else {
           if (process.env.NODE_ENV === "development") {

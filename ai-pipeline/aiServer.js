@@ -168,6 +168,22 @@ function deptExamples(department) {
 
 // ── LLM 호출 헬퍼 ─────────────────────────────────────────────────────────
 
+// 일시적 오류(모델 로딩·교체 중 실패, GPU 메모리 부족, 깨진 JSON 응답 등)는 다시 시도하면 대부분 해결되므로
+// 간격을 늘려가며 재시도하고, 모두 실패했을 때만 마지막 오류를 던진다
+async function withRetry(label, fn, { attempts = 3, baseDelayMs = 1500 } = {}) {
+  let lastError;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn(i);
+    } catch (e) {
+      lastError = e;
+      console.warn(`[${label}] 시도 ${i}/${attempts} 실패: ${e.message}`);
+      if (i < attempts) await new Promise(r => setTimeout(r, baseDelayMs * i));
+    }
+  }
+  throw lastError;
+}
+
 function setupSSE(res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -455,7 +471,7 @@ async function generateReportFollowUps(questions, answers, department, jobRole, 
       `- 반드시 아래 JSON 형식으로만 응답:\n` +
       `{"followUpQuestions":["꼬리질문1"]} 또는 {"followUpQuestions":[]}`;
 
-    return callMLX(llamaClient, LLAMA_MODEL, prompt)
+    return withRetry(`report-followup Q${i + 1}`, () => callMLX(llamaClient, LLAMA_MODEL, prompt), { attempts: 2 })
       .then(r => Array.isArray(r.followUpQuestions) ? r.followUpQuestions.filter(Boolean).slice(0, 2) : [])
       .catch(() => []);
   });
@@ -514,7 +530,11 @@ app.post('/generate/questions', async (req, res) => {
         } catch (e) {
           console.warn(`질문 생성 시도 ${attempt + 1} 실패:`, e.message);
         }
-        if (best.length < count) console.warn(`질문 ${count}개 중 ${best.length}개만 생성 (시도 ${attempt + 1}/3)`);
+        if (best.length < count) {
+          console.warn(`질문 ${count}개 중 ${best.length}개만 생성 (시도 ${attempt + 1}/3)`);
+          // 모델 로딩·교체 중 실패가 연달아 나지 않도록 간격을 둠
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+        }
       }
       return best;
     };
@@ -622,16 +642,15 @@ app.post('/generate/followup', async (req, res) => {
     `{"followup":"꼬리질문"}`;
 
   try {
-    const genResult = await callMLX(llamaClient, LLAMA_MODEL, followupPrompt, { allowTextFallback: true });
-    let followup = typeof genResult.followup === 'string' ? genResult.followup : null;
-    if (followup) {
-      if (isContaminated(followup)) {
-        followup = null;
-      } else {
-        followup = sanitizeFollowup(followup);
-        if (followup.length < 5) followup = null;
-      }
-    }
+    // 오염·너무 짧은 결과도 실패로 보고 다시 생성
+    const followup = await withRetry('followup', async () => {
+      const genResult = await callMLX(llamaClient, LLAMA_MODEL, followupPrompt, { allowTextFallback: true });
+      const raw = typeof genResult.followup === 'string' ? genResult.followup : '';
+      if (!raw || isContaminated(raw)) throw new Error('유효한 꼬리질문 없음');
+      const cleaned = sanitizeFollowup(raw);
+      if (cleaned.length < 5) throw new Error('꼬리질문이 너무 짧음');
+      return cleaned;
+    });
     res.json({ followup });
   } catch (e) {
     console.error('꼬리질문 생성 오류:', e.message);
@@ -665,7 +684,7 @@ app.post('/generate/relevance', async (req, res) => {
     `{"isRelevant":true 또는 false,"field":"이력서의 주된 분야","reason":"판단 이유 한 줄"}`;
 
   try {
-    const parsed = await callMLX(gemmaClient, GEMMA_MODEL, prompt);
+    const parsed = await withRetry('relevance', () => callMLX(gemmaClient, GEMMA_MODEL, prompt));
     const isRelevant = parsed.isRelevant !== false;
     console.log(`[relevance] 학과: ${department} | 이력서 분야: ${parsed.field} | 관련: ${isRelevant} | ${parsed.reason}`);
     res.json({
@@ -700,8 +719,10 @@ app.post('/generate/summary', async (req, res) => {
   const send = setupSSE(res);
 
   try {
-    const raw = await streamRaw(gemmaClient, GEMMA_MODEL, prompt, (p) => send({ type: 'progress', progress: p }), 600);
-    const parsed = JSON.parse(cleanMarkdownJSON(raw));
+    const parsed = await withRetry('summary', async () => {
+      const raw = await streamRaw(gemmaClient, GEMMA_MODEL, prompt, (p) => send({ type: 'progress', progress: p }), 600);
+      return JSON.parse(cleanMarkdownJSON(raw));
+    });
     send({ type: 'done', data: parsed });
   } catch (error) {
     console.error('요약 생성 오류:', error.message);
@@ -788,15 +809,20 @@ ${questionFeedbackExample}
   try {
     // 1단계: gemma로 리포트 본문 생성 (0~75%)
     const ESTIMATED_CHARS = Math.max(2000, qCount * 600);
-    const raw = await streamRaw(
-      gemmaClient, GEMMA_MODEL,
-      prompt,
-      (p) => send({ type: 'progress', progress: Math.floor(p * 0.75) }),
-      ESTIMATED_CHARS,
-      { max_tokens: qCount * 350 + 1000 },
-    );
-
-    const parsed = JSON.parse(cleanMarkdownJSON(raw));
+    // JSON이 깨졌거나 핵심 점수가 빠진 응답도 실패로 보고 다시 생성
+    const parsed = await withRetry('report', async (attempt) => {
+      if (attempt > 1) send({ type: 'progress', progress: 0, step: `리포트 다시 작성 중... (${attempt}/3)` });
+      const raw = await streamRaw(
+        gemmaClient, GEMMA_MODEL,
+        prompt,
+        (p) => send({ type: 'progress', progress: Math.floor(p * 0.75) }),
+        ESTIMATED_CHARS,
+        { max_tokens: qCount * 350 + 1000 },
+      );
+      const result = JSON.parse(cleanMarkdownJSON(raw));
+      if (typeof result.overallScore !== 'number' || !result.scores) throw new Error('리포트 필수 항목 누락');
+      return result;
+    });
 
     if (!Array.isArray(parsed.questionFeedback)) parsed.questionFeedback = [];
     while (parsed.questionFeedback.length < qCount) {

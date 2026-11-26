@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { StepNavbar } from "@/components/Navbar";
 import { IconUpload, IconArrowRight, IconCheck, IconX } from "@/components/Icons";
 import { parseSSE } from "@/lib/sseStream";
+import { fetchWithRetry, sleep } from "@/lib/retry";
 
 type FileStatus = "idle" | "loading" | "ok" | "error";
 
@@ -323,7 +324,7 @@ export default function UploadPage() {
     setRelevanceReason("");
     setRelevanceLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/ai/relevance`, {
+      const res = await fetchWithRetry(`${BACKEND_URL}/ai/relevance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resumeText, coverText, department: dept }),
@@ -346,32 +347,36 @@ export default function UploadPage() {
     setSummaryLoading(true);
     setSummaryProgress(0);
     try {
-      const res = await fetch(`${BACKEND_URL}/ai/summary`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeText, coverText }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok || !res.body) return;
+      // 결과(done)를 받을 때까지 재시도, 모두 실패하면 이전 summary 유지
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetchWithRetry(`${BACKEND_URL}/ai/summary`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resumeText, coverText }),
+            signal: ctrl.signal,
+          });
+          if (!res.body) throw new Error("요약 응답 없음");
 
-      let received = false;
-      for await (const event of parseSSE(res)) {
-        if (event.type === "progress") {
-          setSummaryProgress(event.progress as number);
-        } else if (event.type === "done") {
-          received = true;
-          setSummaryProgress(100);
-          lastSummaryRef.current = event.data as Summary;
-          setSummary(event.data as Summary);
+          let received = false;
+          for await (const event of parseSSE(res)) {
+            if (event.type === "progress") {
+              setSummaryProgress(event.progress as number);
+            } else if (event.type === "done") {
+              received = true;
+              setSummaryProgress(100);
+              lastSummaryRef.current = event.data as Summary;
+              setSummary(event.data as Summary);
+            }
+          }
+          if (received) return;
+          throw new Error("요약 결과 없이 연결 종료");
+        } catch (e: unknown) {
+          if (e instanceof Error && e.name === "AbortError") return;
+          console.warn(`[summary] 시도 ${attempt}/3 실패:`, e);
+          if (attempt < 3) { setSummaryProgress(0); await sleep(2000 * attempt); }
         }
       }
-      // done 이벤트 없이 스트림이 끝난 경우 이전 summary 유지
-      if (!received && lastSummaryRef.current) {
-        setSummary(lastSummaryRef.current);
-      }
-    } catch (e: unknown) {
-      if (e instanceof Error && e.name === "AbortError") return;
-      // 오류 시 이전 summary 유지
       if (lastSummaryRef.current) setSummary(lastSummaryRef.current);
     } finally {
       if (summaryAbortRef.current === ctrl) {

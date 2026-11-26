@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express"
+import { fetchAiServer } from "../lib/aiServer"
 
 const router = Router()
-const AI_SERVER_URL = () => process.env.AI_SERVER_URL || "http://localhost:5050"
 
 function validateString(val: unknown, maxLen: number): string {
   if (typeof val !== "string") return ""
@@ -26,15 +26,9 @@ router.post("/summary", async (req: Request, res: Response) => {
 
   try {
     console.log("[summary] AI 서버 요청 중...")
-    const aiRes = await fetch(`${AI_SERVER_URL()}/generate/summary`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(300000),
-    })
-    if (!aiRes.ok || !aiRes.body) throw new Error(`AI 서버 오류: ${aiRes.status}`)
+    const aiRes = await fetchAiServer("/generate/summary", body, 300000)
 
-    const reader = aiRes.body.getReader()
+    const reader = aiRes.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ""
     while (true) {
@@ -65,12 +59,7 @@ router.post("/relevance", async (req: Request, res: Response) => {
   if (!body.department) return res.json({ isRelevant: true, reason: null })
 
   try {
-    const aiRes = await fetch(`${AI_SERVER_URL()}/generate/relevance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(300000),
-    })
+    const aiRes = await fetchAiServer("/generate/relevance", body, 120000)
     const data = await aiRes.json()
     console.log("[relevance proxy] AI응답:", JSON.stringify(data))
     res.json(data)
@@ -92,12 +81,7 @@ router.post("/followup", async (req: Request, res: Response) => {
     style:           validateString(req.body.style,            50),
   }
   try {
-    const aiRes = await fetch(`${AI_SERVER_URL()}/generate/followup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000),
-    })
+    const aiRes = await fetchAiServer("/generate/followup", body, 120000)
     const data = await aiRes.json()
     res.json(data)
   } catch {
@@ -127,15 +111,9 @@ router.post("/report", async (req: Request, res: Response) => {
   }
 
   try {
-    const aiRes = await fetch(`${AI_SERVER_URL()}/generate/report`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(300000),
-    })
-    if (!aiRes.ok || !aiRes.body) throw new Error(`AI 서버 오류: ${aiRes.status}`)
+    const aiRes = await fetchAiServer("/generate/report", body, 600000)
 
-    const reader = aiRes.body.getReader()
+    const reader = aiRes.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ""
     while (true) {

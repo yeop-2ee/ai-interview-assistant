@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express"
 import prisma from "../lib/prisma"
 import { pickKnowledge } from "../lib/knowledgePicker"
+import { fetchAiServer } from "../lib/aiServer"
 
 const router = express.Router()
 
@@ -25,21 +26,13 @@ router.post("/questions", async (req: Request, res: Response) => {
       knowledgeEntries = pickKnowledge(allEntries, department, jobRole)
     }
 
-    const AI_SERVER_URL = process.env.AI_SERVER_URL || "http://localhost:5050"
-    const aiRes = await fetch(`${AI_SERVER_URL}/generate/questions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        resumeText, knowledgeEntries,
-        department, jobRole, companyType, experienceLevel,
-        interviewType, style,
-      }),
-      signal: AbortSignal.timeout(360000),
-    })
+    const aiRes = await fetchAiServer("/generate/questions", {
+      resumeText, knowledgeEntries,
+      department, jobRole, companyType, experienceLevel,
+      interviewType, style,
+    }, 360000)
 
-    if (!aiRes.ok || !aiRes.body) throw new Error(`AI 서버 오류: ${aiRes.status}`)
-
-    const reader = aiRes.body.getReader()
+    const reader = aiRes.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ""
     let questions: string[] = []

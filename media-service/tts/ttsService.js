@@ -2,6 +2,7 @@ const express = require('express');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { withRetry, assertFileWritten } = require('../lib/retry');
 
 const router = express.Router();
 
@@ -72,7 +73,10 @@ router.post('/synthesize', async (req, res) => {
   const outputPath = path.join(TTS_OUTPUT_DIR, filename);
 
   try {
-    await runTTS(text, outputPath, voice);
+    await withRetry('TTS', async () => {
+      await runTTS(text, outputPath, voice);
+      assertFileWritten(fs, outputPath, 'TTS');
+    });
     res.json({ success: true, filename, path: `/api/tts/audio/${filename}` });
   } catch (error) {
     console.error('TTS 변환 실패:', error);

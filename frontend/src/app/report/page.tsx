@@ -187,6 +187,7 @@ function ReportContent() {
   const searchParams = useSearchParams();
   const fromProfile = searchParams.get("from") === "profile";
   const [report, setReport] = useState<Report | null>(null);
+  const [reportChecked, setReportChecked] = useState(false);
   const [subtitle, setSubtitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -215,6 +216,7 @@ function ReportContent() {
     if (raw) {
       try { setReport(normalizeReport(JSON.parse(raw))); } catch { /* 무시 */ }
     }
+    setReportChecked(true);
   }, []);
 
   const overall = report?.overallScore ?? 0;
@@ -271,6 +273,20 @@ function ReportContent() {
       setEmailSending(false);
     }
   };
+
+  if (!report && reportChecked) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fc] flex items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-[15px] font-semibold text-[#0d1035] mb-2">표시할 리포트가 없습니다</p>
+          <p className="text-[13px] text-[#6b7280] mb-6">면접을 마치면 이곳에서 결과 리포트를 확인할 수 있습니다.</p>
+          <Link href="/setup" className="inline-flex items-center gap-2 font-semibold px-6 py-2.5 rounded-xl text-[14px] bg-[#4f52e8] hover:bg-[#3e41d4] text-white">
+            면접 시작하기 <IconArrowRight />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!report) {
     return (

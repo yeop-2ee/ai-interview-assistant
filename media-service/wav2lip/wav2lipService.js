@@ -3,6 +3,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { withRetry, assertFileWritten } = require('../lib/retry');
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ function startWav2LipServer() {
   w2lServerProc.stdout.on('data', (d) => {
     if (d.includes(`WAV2LIP_SERVER_READY:${W2L_SERVER_PORT}`)) {
       w2lServerReady = true;
+      w2lRestartCount = 0;
       console.log('[Wav2Lip] 상시 서버 기동 완료');
     } else {
       const msg = d.trim();
@@ -50,15 +52,25 @@ function startWav2LipServer() {
     const msg = d.trim();
     if (msg) console.error(`[Wav2Lip:err] ${msg}`);
   });
-  w2lServerProc.on('exit', () => {
+  w2lServerProc.on('exit', (code) => {
     w2lServerReady = false;
     w2lServerProc = null;
+    if (shuttingDown) return;
+    // 죽으면 자동 재기동 (연속으로 죽으면 간격을 늘림, 최대 60초)
+    const delay = Math.min(60000, 3000 * 2 ** w2lRestartCount);
+    w2lRestartCount += 1;
+    console.warn(`[Wav2Lip] 상시 서버 종료(code=${code}) → ${delay / 1000}초 후 재기동`);
+    setTimeout(startWav2LipServer, delay);
   });
   w2lServerProc.on('error', () => { w2lServerReady = false; });
 }
 
+let shuttingDown = false;
+let w2lRestartCount = 0;
+let w2lConsecutiveFailures = 0;
+
 startWav2LipServer();
-process.on('exit', () => { w2lServerProc?.kill(); });
+process.on('exit', () => { shuttingDown = true; w2lServerProc?.kill(); });
 
 // HTTP POST → persistent Wav2Lip 서버
 function callWav2LipServer(facePath, audioPath, outputPath) {
@@ -125,11 +137,23 @@ function runTTS(text, outputPath, voice) {
   });
 }
 
-async function runWav2Lip(faceImagePath, audioPath, outputPath) {
+async function runWav2Lip(faceImagePath, audioPath, outputPath, { useServer = true } = {}) {
   // 1) persistent 서버가 살아있으면 HTTP로 처리 (모델 재로딩 없음)
-  if (w2lServerReady) {
-    const result = await callWav2LipServer(faceImagePath, audioPath, outputPath);
-    return { ...result, mode: 'wav2lip' };
+  if (useServer && w2lServerReady) {
+    try {
+      const result = await callWav2LipServer(faceImagePath, audioPath, outputPath);
+      w2lConsecutiveFailures = 0;
+      return { ...result, mode: 'wav2lip' };
+    } catch (e) {
+      // 프로세스는 살아 있지만 GPU 오류 등으로 계속 실패하면 재시작 (exit 핸들러가 다시 띄움)
+      w2lConsecutiveFailures += 1;
+      if (w2lConsecutiveFailures >= 2 && w2lServerProc) {
+        console.warn('[Wav2Lip] 상시 서버 연속 실패 → 재시작');
+        w2lConsecutiveFailures = 0;
+        w2lServerProc.kill();
+      }
+      throw e;
+    }
   }
 
   // 2) 서버 미기동 시 subprocess fallback
@@ -214,8 +238,16 @@ router.post('/synthesize', async (req, res) => {
   const videoPath = path.join(sessionDir, videoFilename);
 
   try {
-    await runTTS(String(text), audioPath, voice);
-    const w2lResult = await runWav2Lip(facePath, audioPath, videoPath);
+    await withRetry('Wav2Lip TTS', async () => {
+      await runTTS(String(text), audioPath, voice);
+      assertFileWritten(fs, audioPath, 'TTS');
+    });
+    // 마지막 시도는 상시 서버를 거치지 않고 단독 프로세스로 실행 (서버 자체가 이상한 경우 대비)
+    const w2lResult = await withRetry('Wav2Lip', async (attempt) => {
+      const r = await runWav2Lip(facePath, audioPath, videoPath, { useServer: attempt < 3 });
+      assertFileWritten(fs, videoPath, 'Wav2Lip');
+      return r;
+    }, { baseDelayMs: 2000 });
     // 영상에 오디오가 포함되므로 중간 mp3 즉시 삭제
     fs.unlink(audioPath, () => {});
     return res.json({
