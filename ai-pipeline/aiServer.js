@@ -82,6 +82,86 @@ const EXPERIENCE_MAP = {
   senior:   '시니어 (5년 이상) — 리더십·아키텍처 설계·기술 의사결정·멘토링 역량 위주 질문',
 };
 
+// ── 학과별 프롬프트 프로필 ─────────────────────────────────────────────────
+// 여기에 없는 학과(컴퓨터소프트웨어과 등)는 기존 개발자 기준 문구를 그대로 사용.
+const DEPT_PROFILES = {
+  '전자공학과': {
+    roles: {
+      professor: '15년 경력의 시니어 하드웨어 엔지니어 출신 기술 면접관',
+      practical: '실무 프로젝트를 직접 이끄는 현업 하드웨어 설계팀 팀장',
+    },
+    career: '어떤 전자·하드웨어 분야(회로 설계, 임베디드, 반도체 등)에 관심이 있고 앞으로 어떤 엔지니어가 되고 싶은지 설명하게 만드는 질문.',
+    collab: '팀 프로젝트에서 회로도·펌웨어 버전 관리나 설계 문서화를 어떻게 했는지 설명하게 만드는 질문.',
+    basics: '저항·커패시터·인덕터의 역할, 아날로그와 디지털 신호의 차이, 옴의 법칙, 오실로스코프로 무엇을 측정하는지, 마이크로컨트롤러와 마이크로프로세서의 차이, PWM이 무엇인지',
+    build: '간단한 장치(예: 온도 측정기, LED 제어 회로, 센서 데이터 수집 보드)를 처음부터 만든다면 어떤 순서로 설계·제작할지 설명하게 만드는 질문.',
+    trend: 'AI 반도체, 전기차 전장 등 전자 산업의 변화가 하드웨어 엔지니어의 역할을 어떻게 바꿀지 의견을 말하게 만드는 질문.',
+    tools: '사용한 장비·툴(회로 설계 툴, MCU, 계측 장비 등)',
+    examples: [
+      '회로 설계 과제에서 가장 어려웠던 부분은 무엇이었나요?',
+      '오실로스코프로 신호를 측정할 때 어떤 점을 확인하시나요?',
+      '센서 값을 읽는 회로를 만든다면 무엇부터 설계하시겠어요?',
+    ],
+  },
+  '정보통신과': {
+    roles: {
+      professor: '15년 경력의 시니어 네트워크 엔지니어 출신 기술 면접관',
+      practical: '실무 프로젝트를 직접 이끄는 현업 네트워크 운영팀 팀장',
+    },
+    career: '어떤 정보통신 분야(네트워크, 무선통신, 클라우드 인프라, 보안 등)에 관심이 있고 앞으로 어떤 엔지니어가 되고 싶은지 설명하게 만드는 질문.',
+    collab: '팀 프로젝트에서 네트워크 구성도나 장비 설정 변경 이력을 어떻게 관리하고 공유했는지 설명하게 만드는 질문.',
+    basics: 'OSI 7계층, TCP와 UDP의 차이, IP 주소와 서브넷 마스크, 라우터와 스위치의 차이, DNS의 역할, VLAN이 무엇인지',
+    build: '소규모 사무실 네트워크(예: 유무선 인터넷, 공유 프린터, 방화벽)를 처음부터 구축한다면 어떤 순서로 접근할지 설명하게 만드는 질문.',
+    trend: '5G·6G, 클라우드 전환, 네트워크 자동화가 통신 엔지니어의 역할을 어떻게 바꿀지 의견을 말하게 만드는 질문.',
+    tools: '사용한 장비·기술(네트워크 장비, 프로토콜, 클라우드 서비스 등)',
+    examples: [
+      'TCP와 UDP는 각각 어떤 상황에 적합한지 설명해 주시겠어요?',
+      '네트워크 장애가 생기면 가장 먼저 무엇을 확인하시겠어요?',
+      '실습에서 장비 설정을 바꿀 때 기록을 어떻게 남기셨나요?',
+    ],
+  },
+  '전기과': {
+    roles: {
+      professor: '15년 경력의 시니어 전기 엔지니어 출신 기술 면접관',
+      practical: '실무 현장을 직접 이끄는 현업 전기설비팀 팀장',
+    },
+    career: '어떤 전기 분야(전력 설비, 전기 설계, 자동화 제어, 신재생에너지 등)에 관심이 있고 앞으로 어떤 엔지니어가 되고 싶은지 설명하게 만드는 질문.',
+    collab: '팀 프로젝트나 실습에서 도면 관리, 안전 수칙 공유, 작업 분담을 어떻게 했는지 설명하게 만드는 질문.',
+    basics: '교류와 직류의 차이, 전압·전류·저항의 관계, 차단기의 역할, 접지를 하는 이유, 변압기의 원리, 3상 전력이 무엇인지',
+    build: '간단한 설비(예: 전동기 정·역회전 제어 회로, 조명 자동 제어, 소규모 배전반)를 처음부터 구성한다면 어떤 순서로 접근할지 설명하게 만드는 질문.',
+    trend: '신재생에너지, 스마트그리드, 전기차 충전 인프라 확대가 전기 엔지니어의 역할을 어떻게 바꿀지 의견을 말하게 만드는 질문.',
+    tools: '사용한 장비·기술(PLC, 계측기, 전기 설계 툴 등)',
+    examples: [
+      '접지를 하는 이유를 실제 현장 예시와 함께 설명해 주시겠어요?',
+      '전동기 제어 회로를 구성한다면 어떤 순서로 작업하시겠어요?',
+      '실습 중 안전 수칙을 지키기 위해 어떤 점을 신경 쓰셨나요?',
+    ],
+  },
+  '게임콘텐츠과': {
+    roles: {
+      professor: '15년 경력의 시니어 게임 개발자 출신 기술 면접관',
+      practical: '실무 프로젝트를 직접 이끄는 현업 게임 개발팀 팀장',
+    },
+    career: '어떤 게임 개발 분야(클라이언트, 서버, 기획, 아트 등)에 관심이 있고 앞으로 어떤 게임 개발자가 되고 싶은지 설명하게 만드는 질문.',
+    collab: '팀 게임 프로젝트에서 버전 관리나 기획서·리소스 공유를 어떻게 했는지 설명하게 만드는 질문.',
+    basics: '게임 루프가 무엇인지, 프레임레이트(FPS)의 의미, 충돌 판정 방식, 게임 엔진(Unity·Unreal)을 쓰는 이유, 오브젝트 풀링을 쓰는 이유, 레벨 디자인이 무엇인지',
+    build: '간단한 게임(예: 점프 액션, 퍼즐, 슈팅)을 처음부터 만든다면 어떤 순서로 접근할지 설명하게 만드는 질문.',
+    trend: '생성형 AI가 게임 개발 과정(리소스 제작, NPC, 기획 등)을 어떻게 바꿀지 의견을 말하게 만드는 질문.',
+    tools: '사용한 엔진·툴(Unity, Unreal, 그래픽 툴 등)',
+    examples: [
+      '게임 루프가 무엇이고 왜 필요한지 설명해 주시겠어요?',
+      '팀 프로젝트에서 리소스 충돌을 어떻게 관리하셨나요?',
+      '간단한 퍼즐 게임을 만든다면 무엇부터 구현하시겠어요?',
+    ],
+  },
+};
+
+// 학과 프로필이 있을 때만 예시 질문 블록을 추가 (없으면 빈 문자열 → 기존 프롬프트 그대로)
+function deptExamples(department) {
+  const ex = DEPT_PROFILES[department]?.examples;
+  if (!ex?.length) return '';
+  return `[좋은 질문 예시 — 말투와 길이만 참고하고, 문장을 그대로 쓰지 말 것]\n${ex.map(e => `- ${e}`).join('\n')}\n\n`;
+}
+
 // ── LLM 호출 헬퍼 ─────────────────────────────────────────────────────────
 
 function setupSSE(res) {
@@ -170,8 +250,11 @@ async function callMLX(client, model, prompt, { allowTextFallback = false } = {}
 // ── 프롬프트 빌더 ─────────────────────────────────────────────────────────
 
 function buildBaseContext(department, jobRole, companyType, experienceLevel, style) {
+  let persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+  const deptRole = DEPT_PROFILES[department]?.roles?.[style];
+  if (deptRole) persona = { ...persona, role: deptRole };
   return {
-    persona: STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly,
+    persona,
     level: EXPERIENCE_MAP[experienceLevel] || experienceLevel,
     companyLabel: COMPANY_TYPE_MAP[companyType] || companyType,
     companyContext: COMPANY_CONTEXT[companyType] || '',
@@ -204,7 +287,8 @@ function buildCommonPrompt1(department, jobRole, companyType, experienceLevel, s
   if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
 
   p += `면접 질문 1개만 작성하세요.\n\n`;
-  p += `질문: 어떤 개발 분야에 관심이 있고 앞으로 어떤 개발자가 되고 싶은지 설명하게 만드는 질문.\n\n`;
+  p += `질문: ${DEPT_PROFILES[department]?.career ?? '어떤 개발 분야에 관심이 있고 앞으로 어떤 개발자가 되고 싶은지 설명하게 만드는 질문.'}\n\n`;
+  p += deptExamples(department);
   p += commonQuestionRules(persona);
   p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
   p += `{"questions":["질문?"]}`;
@@ -223,7 +307,8 @@ function buildCommonPrompt2(department, jobRole, companyType, experienceLevel, s
   if (companyContext) p += `[회사 맥락] ${companyContext}\n\n`;
 
   p += `면접 질문 1개만 작성하세요.\n\n`;
-  p += `질문: 팀 프로젝트에서 git 브랜치 전략이나 코드 컨벤션을 어떻게 관리했는지 설명하게 만드는 질문.\n\n`;
+  p += `질문: ${DEPT_PROFILES[department]?.collab ?? '팀 프로젝트에서 git 브랜치 전략이나 코드 컨벤션을 어떻게 관리했는지 설명하게 만드는 질문.'}\n\n`;
+  p += deptExamples(department);
   p += commonQuestionRules(persona);
   p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
   p += `{"questions":["질문?"]}`;
@@ -278,10 +363,11 @@ function buildJobPrompt(department, jobRole, companyType, experienceLevel, style
       p += `질문 1: 위 [${department} 직무 전공지식 참고] 항목 중 하나를 골라, 신입이 기본 개념 수준으로 설명할 수 있도록 유도하는 질문. 심화 이론·내부 구현 원리는 묻지 말 것.\n`;
     } else {
       p += `질문 1: 아래 예시 주제 중 하나를 골라 그 개념이 무엇이고 어디에 쓰이는지 설명하게 만드는 기초 수준 질문. 심화 이론·내부 구현 원리는 묻지 말 것.\n`;
-      p += `  예시 주제: 배열과 리스트의 차이, HTTP GET과 POST의 차이, 클라이언트-서버 구조가 무엇인지, 데이터베이스를 쓰는 이유, 함수와 메서드의 차이, API가 무엇인지.\n`;
+      p += `  예시 주제: ${DEPT_PROFILES[department]?.basics ?? '배열과 리스트의 차이, HTTP GET과 POST의 차이, 클라이언트-서버 구조가 무엇인지, 데이터베이스를 쓰는 이유, 함수와 메서드의 차이, API가 무엇인지'}.\n`;
     }
-    p += `질문 2: 간단한 기능(예: 로그인, 게시글 작성, 검색)을 처음부터 만든다면 어떤 순서로 접근할지 설명하게 만드는 질문.\n`;
-    p += `질문 3: AI 코딩 도구(예: GitHub Copilot, ChatGPT 등)를 개발에 어떻게 활용하는지 또는 앞으로 개발 환경이 어떻게 변할지 의견을 말하게 만드는 질문.\n\n`;
+    p += `질문 2: ${DEPT_PROFILES[department]?.build ?? '간단한 기능(예: 로그인, 게시글 작성, 검색)을 처음부터 만든다면 어떤 순서로 접근할지 설명하게 만드는 질문.'}\n`;
+    p += `질문 3: ${DEPT_PROFILES[department]?.trend ?? 'AI 코딩 도구(예: GitHub Copilot, ChatGPT 등)를 개발에 어떻게 활용하는지 또는 앞으로 개발 환경이 어떻게 변할지 의견을 말하게 만드는 질문.'}\n\n`;
+    p += deptExamples(department);
     p += commonQuestionRules(persona);
     p += `- 신입이므로 깊은 실무 경험·심화 이론 전제 금지. 기본 개념 이해 수준으로만 질문할 것.\n`;
     p += `- 반드시 아래 JSON 형식으로만 응답:\n`;
@@ -334,7 +420,7 @@ function buildResumePrompt(department, jobRole, companyType, experienceLevel, st
     previousQuestions.forEach(q => p += `- ${q}\n`);
     p += `\n`;
   }
-  p += `질문 1: 위 이력서에 실제로 적혀 있는 경험에서 본인이 담당한 역할과 사용한 기술 스택이 무엇인지 묻는 질문. 이력서에 없는 내용 지어내기 금지. 프로젝트명 직접 언급 금지.\n`;
+  p += `질문 1: 위 이력서에 실제로 적혀 있는 경험에서 본인이 담당한 역할과 ${DEPT_PROFILES[department]?.tools ?? '사용한 기술 스택'}이 무엇인지 묻는 질문. 이력서에 없는 내용 지어내기 금지. 프로젝트명 직접 언급 금지.\n`;
   p += `질문 2: 위 이력서에 실제로 적혀 있는 다른 경험에서 특정 기술을 선택한 이유 또는 구현 중 어려웠던 점을 묻는 질문. 이력서에 없는 내용 지어내기 금지. 프로젝트명 직접 언급 금지.\n\n`;
   p += commonQuestionRules(persona);
   p += `- 이력서와 무관한 일반 질문 금지.\n`;
@@ -395,61 +481,72 @@ app.post('/generate/questions', async (req, res) => {
       }
     };
 
-    // 패스 1: 공통 2개 (각각 따로 생성 — 한 번에 2개 요청 시 1개만 반환되는 모델 오류 방지)
-    sendProgress(0, '공통 질문 생성 중...');
-    const [commonPass1, commonPass2] = await Promise.all([
-      streamMLX(
-        llamaClient, LLAMA_MODEL,
-        buildCommonPrompt1(department, jobRole, companyType, experienceLevel, style),
-        () => {}, 80,
-      ),
-      streamMLX(
-        llamaClient, LLAMA_MODEL,
-        buildCommonPrompt2(department, jobRole, companyType, experienceLevel, style),
-        (p) => sendProgress(Math.floor(p * 0.25), '공통 질문 생성 중...'),
-        80,
-      ),
-    ]);
-    const commonQ1 = Array.isArray(commonPass1.questions) ? commonPass1.questions.slice(0, 1) : [];
-    const commonQ2 = Array.isArray(commonPass2.questions) ? commonPass2.questions.slice(0, 1) : [];
-    const commonQs = [...commonQ1, ...commonQ2];
-
-    // 질문 필터: 불량 항목 제거 (카테고리 추적과 함께)
+    // 질문 필터: 불량 항목 제거
     const filterQuestion = (q) => {
       if (typeof q !== 'string') return false;
       const t = q.trim();
       if (t.length < 6 || t.length > 150) return false;
       if (!t.endsWith('?')) return false;
-      // 한자(CJK) 또는 베트남어 등 라틴 확장 특수문자 포함 시 제외
+      // 허용 문자(한글·영어·숫자·기본 문장부호) 외의 문자가 있으면 제외 — 한자·베트남어·키릴·아랍·힌디 등 혼입 차단
       // (영어 tech 용어 git, API, React 등은 허용)
-      if (/[\u4E00-\u9FFF\u0100-\u024F\u0300-\u036F]/.test(t)) return false;
+      if (/[^ -~가-힣ㄱ-ㆎ·‘’“”…–—]/.test(t)) return false;
+      // 한글 바로 뒤에 영어가 붙은 깨진 단어 제외 (예: "기술ize", "있DonaldTrump")
+      if (/[가-힣][A-Za-z]/.test(t)) return false;
       return true;
     };
+
+    // 생성 + 필터링, 필요한 개수보다 적으면 최대 2회 재시도 (생성 오류도 재시도 대상)
+    // 프론트엔드는 AI 질문이 5개 미만이면 설정 화면으로 돌려보내므로 개수 확보가 중요
+    const generateQuestions = async (prompt, count, onProgress, estimatedChars) => {
+      let best = [];
+      for (let attempt = 0; attempt < 3 && best.length < count; attempt++) {
+        try {
+          const result = await streamMLX(llamaClient, LLAMA_MODEL, prompt, attempt === 0 ? onProgress : () => {}, estimatedChars);
+          const qs = (Array.isArray(result.questions) ? result.questions : [])
+            .map(q => (typeof q === 'string' ? q.trim() : q))
+            .filter(filterQuestion)
+            .slice(0, count);
+          if (qs.length > best.length) best = qs;
+        } catch (e) {
+          console.warn(`질문 생성 시도 ${attempt + 1} 실패:`, e.message);
+        }
+        if (best.length < count) console.warn(`질문 ${count}개 중 ${best.length}개만 생성 (시도 ${attempt + 1}/3)`);
+      }
+      return best;
+    };
+
+    // 패스 1: 공통 2개 (각각 따로 생성 — 한 번에 2개 요청 시 1개만 반환되는 모델 오류 방지)
+    sendProgress(0, '공통 질문 생성 중...');
+    const [commonQ1, commonQ2] = await Promise.all([
+      generateQuestions(
+        buildCommonPrompt1(department, jobRole, companyType, experienceLevel, style),
+        1, () => {}, 80,
+      ),
+      generateQuestions(
+        buildCommonPrompt2(department, jobRole, companyType, experienceLevel, style),
+        1, (p) => sendProgress(Math.floor(p * 0.25), '공통 질문 생성 중...'), 80,
+      ),
+    ]);
+    const commonQs = [...commonQ1, ...commonQ2];
 
     let taggedQs = []; // { q, cat } 형태로 카테고리 함께 추적
 
     if (interviewType === 'resume' || interviewType === 'mixed') {
       // 패스 2: 직무 3개 (25~65%)
       sendProgress(25, '직무 질문 생성 중...');
-      const pass2 = await streamMLX(
-        llamaClient, LLAMA_MODEL,
+      const jobQs = await generateQuestions(
         buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries, commonQs),
-        (p) => sendProgress(25 + Math.floor(p * 0.40), '직무 질문 생성 중...'),
-        220,
+        3, (p) => sendProgress(25 + Math.floor(p * 0.40), '직무 질문 생성 중...'), 220,
       );
-      const jobQs = Array.isArray(pass2.questions) ? pass2.questions.slice(0, 3) : [];
 
       // 패스 3: 이력서 2개 (65~95%)
       let resumeQs = [];
       if (hasResume) {
         sendProgress(65, '이력서 질문 생성 중...');
-        const pass3 = await streamMLX(
-          llamaClient, LLAMA_MODEL,
+        resumeQs = await generateQuestions(
           buildResumePrompt(department, jobRole, companyType, experienceLevel, style, resumeText, [...commonQs, ...jobQs]),
-          (p) => sendProgress(65 + Math.floor(p * 0.30), '이력서 질문 생성 중...'),
-          150,
+          2, (p) => sendProgress(65 + Math.floor(p * 0.30), '이력서 질문 생성 중...'), 150,
         );
-        resumeQs = Array.isArray(pass3.questions) ? pass3.questions.slice(0, 2) : [];
       }
 
       taggedQs = [
@@ -461,13 +558,10 @@ app.post('/generate/questions', async (req, res) => {
     } else {
       // 패스 2: 직무/인성 3개 (25~95%)
       sendProgress(25, '직무 질문 생성 중...');
-      const pass2 = await streamMLX(
-        llamaClient, LLAMA_MODEL,
+      const jobQs = await generateQuestions(
         buildJobPrompt(department, jobRole, companyType, experienceLevel, style, interviewType, knowledgeEntries, commonQs),
-        (p) => sendProgress(25 + Math.floor(p * 0.70), '직무 질문 생성 중...'),
-        220,
+        3, (p) => sendProgress(25 + Math.floor(p * 0.70), '직무 질문 생성 중...'), 220,
       );
-      const jobQs = Array.isArray(pass2.questions) ? pass2.questions.slice(0, 3) : [];
       const label = interviewType === 'personality' ? '인성' : '전공';
       taggedQs = [
         ...commonQs.map(q => ({ q: typeof q === 'string' ? q.trim() : q, cat: '공통' })),
