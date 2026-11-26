@@ -21,5 +21,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return
   }
 
+  res.locals.user = user
+  next()
+}
+
+// requireAuth 뒤에 사용 — 세션 사용자의 role로 판단 (요청 본문의 email은 신뢰하지 않음)
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (res.locals.user?.role !== "admin") {
+    res.status(403).json({ error: "관리자 권한이 필요합니다." })
+    return
+  }
   next()
 }
