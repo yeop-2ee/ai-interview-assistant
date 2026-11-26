@@ -286,6 +286,23 @@ function buildBaseContext(department, jobRole, companyType, experienceLevel, sty
 }
 
 // 모든 질문 프롬프트에 공통으로 적용되는 출력 규칙
+// ── 면접 언어 ─────────────────────────────────────────────────────────────
+// 외국계 기업을 고르면 영어 면접 — 질문·꼬리질문은 영어, 리포트 피드백은 한국어(개선 답변 예시만 영어)
+const interviewLanguage = (companyType) => (companyType === 'foreign' ? 'en' : 'ko');
+
+// 영어 면접: 한국어 전용 지시를 걷어내고, 질문을 영어로 쓰라는 규칙을 최우선으로 덧붙임
+// (프롬프트 본문은 한국어 그대로 두어 두 벌로 관리하지 않음)
+function localizeQuestionPrompt(prompt, lang) {
+  if (lang !== 'en') return prompt;
+  return prompt
+    .replaceAll('당신은 한국어로만 대답하는 채용 전문 면접관입니다.', '당신은 외국계 기업의 채용 전문 면접관이며, 이 면접은 영어로 진행됩니다.')
+    .replaceAll('- 반드시 한국어로만 작성. 영어·한자·기타 외국어 절대 금지.\n', '')
+    .replaceAll('- 질문은 30자 이상 60자 이내로 간결하게.\n', '- 질문은 10~25단어 정도로 간결하게.\n')
+    .replace(/\[좋은 질문 예시[\s\S]*?\n\n/, '')   // 한국어 예시 질문은 한국어 출력을 유도하므로 제외
+    .replace(/\[한국어 규칙\][\s\S]*?\n\n/, '')
+    + `\n\n[언어 규칙 — 위 내용보다 우선]\n- 모든 질문은 자연스럽고 정중한 비즈니스 영어로만 작성. 한국어 금지.\n- 각 질문은 물음표(?)로 끝나는 한 문장.\n- JSON 키와 형식은 그대로 유지.`;
+}
+
 function commonQuestionRules(persona) {
   return (
     `[출력 규칙 — 반드시 준수]\n` +
@@ -455,7 +472,7 @@ function buildResumePrompt(department, jobRole, companyType, experienceLevel, st
 
 // ── 리포트용 꼬리질문 추출 (llama 담당) ──────────────────────────────────
 // followupSet: 꼬리질문인 질문 텍스트 집합 (해당 행은 스킵)
-async function generateReportFollowUps(questions, answers, department, jobRole, followupSet = new Set()) {
+async function generateReportFollowUps(questions, answers, department, jobRole, followupSet = new Set(), lang = 'ko') {
   const context = [jobRole, department].filter(Boolean).join(' / ');
 
   const tasks = questions.map((q, i) => {
@@ -473,7 +490,8 @@ async function generateReportFollowUps(questions, answers, department, jobRole, 
       `- 답변이 추상적이거나 "(답변 없음)"이거나 이미 충분히 설명된 경우에는 빈 배열을 반환하세요.\n` +
       `- 꼬리질문이 있다면 1~2개, 짧고 날카롭게, 물음표로 끝낼 것.\n` +
       `- 반드시 아래 JSON 형식으로만 응답:\n` +
-      `{"followUpQuestions":["꼬리질문1"]} 또는 {"followUpQuestions":[]}`;
+      `{"followUpQuestions":["꼬리질문1"]} 또는 {"followUpQuestions":[]}` +
+      (lang === 'en' ? `\n- 이 면접은 영어로 진행되었으므로 꼬리질문은 자연스러운 비즈니스 영어로 작성.` : '');
 
     return withRetry(`report-followup Q${i + 1}`, () => callMLX(llamaClient, LLAMA_MODEL, prompt), { attempts: 2 })
       .then(r => Array.isArray(r.followUpQuestions) ? r.followUpQuestions.filter(Boolean).slice(0, 2) : [])
@@ -490,6 +508,7 @@ app.post('/generate/questions', async (req, res) => {
   const { resumeText, knowledgeEntries = [], department, jobRole, companyType, interviewType } = req.body;
   const experienceLevel = 'newcomer';
   const style = resolveStyle(req.body.style);
+  const lang = interviewLanguage(companyType);
 
   const send = setupSSE(res);
 
@@ -509,8 +528,9 @@ app.post('/generate/questions', async (req, res) => {
     const filterQuestion = (q) => {
       if (typeof q !== 'string') return false;
       const t = q.trim();
-      if (t.length < 6 || t.length > 150) return false;
+      if (t.length < 6 || t.length > (lang === 'en' ? 250 : 150)) return false;
       if (!t.endsWith('?')) return false;
+      if (lang === 'en' && /[가-힣]/.test(t)) return false; // 영어 면접에 한국어가 섞인 질문 제외
       // 허용 문자(한글·영어·숫자·기본 문장부호) 외의 문자가 있으면 제외 — 한자·베트남어·키릴·아랍·힌디 등 혼입 차단
       // (영어 tech 용어 git, API, React 등은 허용)
       if (/[^ -~가-힣ㄱ-ㆎ·‘’“”…–—]/.test(t)) return false;
@@ -525,7 +545,7 @@ app.post('/generate/questions', async (req, res) => {
       let best = [];
       for (let attempt = 0; attempt < 3 && best.length < count; attempt++) {
         try {
-          const result = await streamMLX(llamaClient, LLAMA_MODEL, prompt, attempt === 0 ? onProgress : () => {}, estimatedChars, { temperature: QUESTION_TEMPERATURE });
+          const result = await streamMLX(llamaClient, LLAMA_MODEL, localizeQuestionPrompt(prompt, lang), attempt === 0 ? onProgress : () => {}, estimatedChars, { temperature: QUESTION_TEMPERATURE });
           const qs = (Array.isArray(result.questions) ? result.questions : [])
             .map(q => (typeof q === 'string' ? q.trim() : q))
             .filter(filterQuestion)
@@ -631,11 +651,12 @@ function sanitizeFollowup(text) {
 }
 
 // 꼬리질문 품질 검사 — 질문 생성과 같은 문자 규칙 + 물음표로 끝나는 한 문장
-function isUsableFollowup(text, answer) {
+function isUsableFollowup(text, answer, lang = 'ko') {
   if (typeof text !== 'string') return false;
   const t = text.trim();
-  if (t.length < 5 || t.length > 150) return false;
+  if (t.length < 5 || t.length > (lang === 'en' ? 250 : 150)) return false;
   if (!t.endsWith('?')) return false;
+  if (lang === 'en' && /[가-힣]/.test(t)) return false;   // 영어 면접에 한국어 혼입
   if (/[^ -~가-힣ㄱ-ㆎ·‘’“”…–—]/.test(t)) return false; // 한자·베트남어·키릴·아랍·힌디 등 혼입
   if (/[가-힣][A-Za-z]/.test(t)) return false;            // "기술ize" 같은 깨진 단어
   if (answer && answer.includes(t.replace(/\?$/, ''))) return false; // 지원자 답변을 그대로 되풀이
@@ -646,13 +667,14 @@ function isUsableFollowup(text, answer) {
 app.post('/generate/followup', async (req, res) => {
   const { question = '', answer = '', department = '', jobRole = '' } = req.body;
   const style = resolveStyle(req.body.style || 'friendly');
+  const lang = interviewLanguage(req.body.companyType);
   let persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
   const deptRole = DEPT_PROFILES[department]?.roles?.[style];
   if (deptRole) persona = { ...persona, role: deptRole };
 
   const context = [jobRole, department].filter(Boolean).join(' / ');
   const followupPrompt =
-    `면접관(${persona.role})이 지원자의 답변에 심화 꼬리질문을 합니다. 반드시 한국어로만 답변하세요.\n\n` +
+    `면접관(${persona.role})이 지원자의 답변에 심화 꼬리질문을 합니다. ${lang === 'en' ? '이 면접은 영어로 진행되므로 꼬리질문은 자연스러운 비즈니스 영어로만 작성하세요(한국어 금지).' : '반드시 한국어로만 답변하세요.'}\n\n` +
     (context ? `직무: ${context}\n` : '') +
     `질문: ${question}\n` +
     `답변: ${answer}\n\n` +
@@ -667,7 +689,7 @@ app.post('/generate/followup', async (req, res) => {
       const raw = typeof genResult.followup === 'string' ? genResult.followup : '';
       if (!raw || isContaminated(raw)) throw new Error('유효한 꼬리질문 없음');
       const candidate = sanitizeFollowup(raw);
-      if (!isUsableFollowup(candidate, answer)) throw new Error(`품질 검사 탈락: ${candidate.slice(0, 80)}`);
+      if (!isUsableFollowup(candidate, answer, lang)) throw new Error(`품질 검사 탈락: ${candidate.slice(0, 80)}`);
       return candidate;
     });
     res.json({ followup });
@@ -761,6 +783,7 @@ function evalAnswerLength(text = '') {
 // [gemma] 리포트 본문 생성 → [llama] 꼬리질문 추출 → 병합
 app.post('/generate/report', async (req, res) => {
   const { questions = [], answers = [], department = '', interviewType = 'mixed', interviewStyle = '', followupParentLabels = {} } = req.body;
+  const lang = interviewLanguage(req.body.companyType);
   // 꼬리질문 텍스트 집합 (해당 행은 꼬리질문 생성 스킵)
   const followupSet = new Set(Object.keys(followupParentLabels));
 
@@ -825,6 +848,12 @@ ${questionFeedbackExample}
 
 중요: questionFeedback 배열은 반드시 위 Q&A의 질문 순서대로 정확히 ${qCount}개의 항목을 포함해야 합니다. 모든 점수는 위 체크리스트를 실제 답변에 적용한 0~100 사이 정수입니다.`;
 
+  // 영어 면접: 피드백은 한국어로 쓰되 개선 답변 예시는 영어로, 영어 표현력도 평가에 반영
+  const reportPrompt = lang !== 'en' ? prompt : prompt
+    .replace('절대 영어를 사용하지 마세요. 모든 응답은 반드시 한국어로 작성하세요.', '피드백은 한국어로 작성하되, improvedAnswer만 영어로 작성하세요.')
+    .replace('모든 문자열 값은 반드시 한국어', 'improvedAnswer를 제외한 모든 문자열 값은 반드시 한국어')
+    + `\n\n[영어 면접 추가 규칙]\n- 이 면접은 외국계 기업 영어 면접이며 질문과 답변이 영어입니다.\n- improvedAnswer는 지원자가 실제로 말할 수 있는 자연스러운 영어 답변(1인칭, 2~3문장)으로 작성.\n- 영어 표현력(문법·어휘·유창성)을 delivery 점수와 comment에 반영하고, 어색한 영어 표현이 있으면 comment에서 구체적으로 짚어줄 것.`;
+
   try {
     // 1단계: gemma로 리포트 본문 생성 (0~75%)
     const ESTIMATED_CHARS = Math.max(2000, qCount * 600);
@@ -833,7 +862,7 @@ ${questionFeedbackExample}
       if (attempt > 1) send({ type: 'progress', progress: 0, step: `리포트 다시 작성 중... (${attempt}/3)` });
       const raw = await streamRaw(
         gemmaClient, GEMMA_MODEL,
-        prompt,
+        reportPrompt,
         (p) => send({ type: 'progress', progress: Math.floor(p * 0.75) }),
         ESTIMATED_CHARS,
         { max_tokens: qCount * 350 + 1000 },
@@ -850,7 +879,7 @@ ${questionFeedbackExample}
 
     // 2단계: llama로 꼬리질문 병렬 생성 (75~95%)
     send({ type: 'progress', progress: 75, step: '꼬리질문 생성 중...' });
-    const allFollowUps = await generateReportFollowUps(questions, answers, department, req.body.jobRole || '', followupSet);
+    const allFollowUps = await generateReportFollowUps(questions, answers, department, req.body.jobRole || '', followupSet, lang);
     send({ type: 'progress', progress: 95 });
 
     // 3단계: 병합

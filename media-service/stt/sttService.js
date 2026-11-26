@@ -17,9 +17,9 @@ const RUNNER_PATH = path.join(__dirname, 'transcribe_runner.py');
 
 const STT_TIMEOUT_MS = 5 * 60 * 1000; // 5분
 
-function runTranscribe(audioPath) {
+function runTranscribe(audioPath, language = 'ko') {
   return new Promise((resolve, reject) => {
-    const proc = spawn(PYTHON_PATH, [RUNNER_PATH, audioPath], {
+    const proc = spawn(PYTHON_PATH, [RUNNER_PATH, audioPath, language], {
       env: {
         ...process.env,
         PYTHONPATH: process.env.PYTHONPATH || '/home/ec2-user/.local/lib/python3.9/site-packages',
@@ -55,7 +55,7 @@ function runTranscribe(audioPath) {
 
 /**
  * POST /api/stt/transcribe
- * Body: multipart/form-data { audio: File (webm/wav/mp4) }
+ * Body: multipart/form-data { audio: File (webm/wav/mp4), language?: 'ko' | 'en' }
  */
 router.post('/transcribe', upload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '오디오 파일이 없습니다.' });
@@ -69,7 +69,8 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
     const fileSizeKB = (req.file.size / 1024).toFixed(1);
     console.log(`[STT] 요청: ${req.file.originalname} (${fileSizeKB} KB)`);
     // 무음이면 빈 텍스트로 정상 반환되므로, 재시도는 Whisper 실행 자체가 실패했을 때만 일어남
-    const result = await withRetry('STT', () => runTranscribe(tmpPath));
+    const language = req.body?.language === 'en' ? 'en' : 'ko';
+    const result = await withRetry('STT', () => runTranscribe(tmpPath, language));
     console.log(`[STT] 결과: "${result.text}" (raw: "${result.raw}")`);
     res.json({ success: true, text: result.text });
   } catch (err) {

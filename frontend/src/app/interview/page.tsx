@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { IconArrowRight, IconMic } from "@/components/Icons";
 import { useFaceAnalysis } from "@/hooks/useFaceAnalysis";
-import { INTERVIEW_INTRO_QUESTION, useInterviewQuestions } from "@/hooks/useInterviewQuestions";
+import { introQuestionOf, endingMessageOf, isEndingMessage, useInterviewQuestions } from "@/hooks/useInterviewQuestions";
 import { useCallMedia } from "@/hooks/useCallMedia";
 import { parseSSE } from "@/lib/sseStream"
 import { fetchWithRetry, sleep } from "@/lib/retry"
@@ -843,11 +843,14 @@ export default function InterviewPage() {
   const {
     questions, questionsRef, setQuestions, questionCategories, setQuestionCategories,
     questionsLoading, questionsProgress, questionsStep, questionError,
-    interviewStyle, avatarSrc, resolvedStyleRef,
+    interviewStyle, avatarSrc, resolvedStyleRef, language, languageRef,
   } = useInterviewQuestions();
 
-  const getTtsVoice = () =>
-    resolvedStyleRef.current === "pressure" ? "ko-KR-SunHiNeural" : "ko-KR-InJoonNeural";
+  const getTtsVoice = () => {
+    const pressure = resolvedStyleRef.current === "pressure";
+    if (languageRef.current === "en") return pressure ? "en-US-JennyNeural" : "en-US-GuyNeural";
+    return pressure ? "ko-KR-SunHiNeural" : "ko-KR-InJoonNeural";
+  };
 
   // avatarSrc는 state라 useCallback 클로저에 stale하게 캡처됨 → ref로 항상 최신값 유지
   const avatarSrcRef = useRef(avatarSrc);
@@ -928,7 +931,7 @@ export default function InterviewPage() {
   // (결과 없이 리포트 페이지로 넘어가면 무한 로딩이 되므로 done을 받았을 때만 reportReady)
   const generateReport = useCallback(async () => {
     const msgs = messagesRef.current;
-    const aiQuestions = msgs.filter(m => m.role === "ai" && !m.text.includes("수고하셨습니다")).map(m => m.text);
+    const aiQuestions = msgs.filter(m => m.role === "ai" && !isEndingMessage(m.text)).map(m => m.text);
     const userAnswers = msgs.filter(m => m.role === "user").map(m => m.text);
     const settings = JSON.parse(sessionStorage.getItem("interviewSettings") || "{}");
 
@@ -948,6 +951,7 @@ export default function InterviewPage() {
             answers: userAnswers,
             department: settings.department || "",
             interviewType: settings.interviewType || "mixed",
+            companyType: settings.companyType || "",
             followupParentLabels: Object.fromEntries(followupParentLabelRef.current),
           }),
         });
@@ -1018,7 +1022,7 @@ export default function InterviewPage() {
         speakTextRef.current(questionsRef.current[next]);
       }, 600);
     } else {
-      const finalMsg = "모든 질문이 끝났습니다. 오늘 면접 정말 수고하셨습니다!";
+      const finalMsg = endingMessageOf(languageRef.current);
       newMsgs.push({ role: "ai", text: finalMsg, time: now() });
       setMessages(newMsgs);
       setPhase("done");
@@ -1097,6 +1101,7 @@ export default function InterviewPage() {
       const blob = new Blob(chunks, { type: mimeType });
       const form = new FormData();
       form.append("audio", blob, "answer.webm");
+      form.append("language", languageRef.current);
       try {
         const r = await fetchWithRetry(`${MEDIA_API}/api/stt/transcribe`, { method: "POST", body: form });
         const data = await r.json();
@@ -1312,8 +1317,8 @@ export default function InterviewPage() {
   useEffect(() => {
     if (avatarSrc === "/avatar.png") return; // 아직 스타일 미확정
     // 면접 시작 시 아직 생성 중이면 speakText가 이 결과를 기다림
-    requestLipVideo(INTERVIEW_INTRO_QUESTION, avatarSrc);
-  }, [avatarSrc, requestLipVideo]);
+    requestLipVideo(introQuestionOf(language), avatarSrc);
+  }, [avatarSrc, language, requestLipVideo]);
 
   useEffect(() => {
     if (phase === "call" && streamRef.current) {
@@ -1771,7 +1776,7 @@ export default function InterviewPage() {
 
                     // 꼬리질문 없으면 다음 정규 질문(또는 마무리 멘트)
                     const isLastQuestion = !nextSpeakText && qIdxRef.current + 1 >= questionsRef.current.length;
-                    const ENDING_MSG = "모든 질문이 끝났습니다. 오늘 면접 정말 수고하셨습니다!";
+                    const ENDING_MSG = endingMessageOf(languageRef.current);
                     if (!nextSpeakText) {
                       const nextIdx = qIdxRef.current + 1;
                       nextSpeakText = nextIdx < questionsRef.current.length
@@ -2042,7 +2047,7 @@ export default function InterviewPage() {
       )}
       {showReportSurveyModal && (
         <SurveyEmailModal
-          questions={messages.filter(m => m.role === "ai" && !m.text.includes("수고하셨습니다")).map(m => m.text)}
+          questions={messages.filter(m => m.role === "ai" && !isEndingMessage(m.text)).map(m => m.text)}
           answers={messages.filter(m => m.role === "user").map(m => m.text)}
           followupParentLabels={Object.fromEntries(followupParentLabelRef.current)}
           onClose={() => setShowReportSurveyModal(false)}

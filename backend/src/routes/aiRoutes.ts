@@ -107,6 +107,7 @@ router.post("/report", async (req: Request, res: Response) => {
     answers:              rawAnswers.slice(0, 20).map((a: unknown) => validateString(a, 1000)),
     department:           validateString(req.body.department,    100),
     interviewType:        validateString(req.body.interviewType,  50),
+    companyType:          validateString(req.body.companyType,    50),
     followupParentLabels: rawFollowupLabels,
   }
 

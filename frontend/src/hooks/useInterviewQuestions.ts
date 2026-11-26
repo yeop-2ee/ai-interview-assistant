@@ -27,6 +27,16 @@ const STYLE_LABEL: Record<string, string> = {
 
 /** 항상 첫 번째로 진행되는 자기소개 질문. PRERENDERED 키로도 사용됨. */
 export const INTERVIEW_INTRO_QUESTION = "안녕하세요. 간단한 자기소개 부탁드립니다.";
+export const INTERVIEW_INTRO_QUESTION_EN = "Hello, thank you for joining us today. Could you please briefly introduce yourself?";
+export const INTERVIEW_ENDING = "모든 질문이 끝났습니다. 오늘 면접 정말 수고하셨습니다!";
+export const INTERVIEW_ENDING_EN = "That's all the questions we have. Thank you for your time today!";
+
+export type InterviewLanguage = "ko" | "en";
+// 외국계 기업을 고르면 영어 면접 (질문·꼬리질문·음성·답변 인식 모두 영어)
+export const interviewLanguageOf = (companyType?: string): InterviewLanguage => (companyType === "foreign" ? "en" : "ko");
+export const introQuestionOf = (lang: InterviewLanguage) => (lang === "en" ? INTERVIEW_INTRO_QUESTION_EN : INTERVIEW_INTRO_QUESTION);
+export const endingMessageOf = (lang: InterviewLanguage) => (lang === "en" ? INTERVIEW_ENDING_EN : INTERVIEW_ENDING);
+export const isEndingMessage = (text: string) => text === INTERVIEW_ENDING || text === INTERVIEW_ENDING_EN;
 
 export function useInterviewQuestions() {
   const [questions, setQuestions] = useState<string[]>([INTERVIEW_INTRO_QUESTION]);
@@ -42,6 +52,8 @@ export function useInterviewQuestions() {
   const questionsRef = useRef<string[]>([INTERVIEW_INTRO_QUESTION]);
   // 모든 AI 호출에 일관되게 적용할 resolve된 스타일
   const resolvedStyleRef = useRef("friendly");
+  const [language, setLanguage] = useState<InterviewLanguage>("ko");
+  const languageRef = useRef<InterviewLanguage>("ko");
 
   useEffect(() => {
     questionsRef.current = questions;
@@ -57,6 +69,14 @@ export function useInterviewQuestions() {
 
     const resolvedStyle = resolveStyle(settings.style || "friendly");
     resolvedStyleRef.current = resolvedStyle;
+
+    const lang = interviewLanguageOf(settings.companyType);
+    languageRef.current = lang;
+    setLanguage(lang);
+    if (lang === "en") {
+      setQuestions([INTERVIEW_INTRO_QUESTION_EN]);
+      questionsRef.current = [INTERVIEW_INTRO_QUESTION_EN];
+    }
 
     if (settings.style) {
       const displayLabel = settings.style === "random"
@@ -105,7 +125,7 @@ export function useInterviewQuestions() {
               throw new Error(`질문 ${aiQuestions.length}개만 생성됨`);
             }
             if (aiQuestions.length > 0) {
-              const merged = [INTERVIEW_INTRO_QUESTION, ...aiQuestions];
+              const merged = [introQuestionOf(lang), ...aiQuestions];
               setQuestions(merged);
               questionsRef.current = merged;
               const cats = Array.isArray(event.categories) ? event.categories as string[] : [];
@@ -157,5 +177,7 @@ export function useInterviewQuestions() {
     interviewStyle,
     avatarSrc,
     resolvedStyleRef,
+    language,
+    languageRef,
   };
 }
