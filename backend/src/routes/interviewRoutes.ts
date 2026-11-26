@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express"
 import prisma from "../lib/prisma"
+import { pickKnowledge } from "../lib/knowledgePicker"
 
 const router = express.Router()
 
@@ -17,12 +18,11 @@ router.post("/questions", async (req: Request, res: Response) => {
     let knowledgeEntries: { subject: string; content: string }[] = []
 
     if (department && (interviewType === "major" || interviewType === "mixed")) {
-      knowledgeEntries = await prisma.knowledgeEntry.findMany({
+      const allEntries = await prisma.knowledgeEntry.findMany({
         where: { department },
         select: { subject: true, content: true },
-        orderBy: { createdAt: "desc" },
-        take: 10,
       })
+      knowledgeEntries = pickKnowledge(allEntries, jobRole)
     }
 
     const AI_SERVER_URL = process.env.AI_SERVER_URL || "http://localhost:5050"
