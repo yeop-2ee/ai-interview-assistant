@@ -17,8 +17,9 @@ const LLAMA_MODEL      = process.env.LLAMA_MODEL      || 'gemma3:12b'; // 파인
 const GEMMA_SERVER_URL = process.env.GEMMA_SERVER_URL || process.env.LLM_SERVER_URL || 'http://localhost:11434';
 const GEMMA_MODEL      = process.env.GEMMA_MODEL      || 'gemma3:12b';
 
-// 면접 질문 생성 temperature — 낮출수록 오타·비문이 줄어듦 (파인튜닝 모델 실험: 0.8→0.5에서 불량률 25%→8%)
-const QUESTION_TEMPERATURE = process.env.QUESTION_TEMPERATURE !== undefined ? Number(process.env.QUESTION_TEMPERATURE) : 0.5;
+// 면접 질문 생성 temperature — 낮출수록 오타·비문이 줄고, 같은 질문 반복은 늘어남
+// (파인튜닝 모델, 신규 학과 수동 채점 비문 비율: 0.8 약 25% → 0.5 약 4% → 0.3 약 1~2%)
+const QUESTION_TEMPERATURE = process.env.QUESTION_TEMPERATURE !== undefined ? Number(process.env.QUESTION_TEMPERATURE) : 0.3;
 
 const llamaClient = new OpenAI({ baseURL: `${LLAMA_SERVER_URL}/v1`, apiKey: 'ollama' });
 const gemmaClient = new OpenAI({ baseURL: `${GEMMA_SERVER_URL}/v1`, apiKey: 'ollama' });
