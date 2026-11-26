@@ -38,7 +38,14 @@ const DEPARTMENTS = [
   { name: "관광과", enabled: false },
   { name: "호텔외식조리과", enabled: false },
 ];
-const SUBJECT_LIST = ["자료구조", "알고리즘", "운영체제", "데이터베이스", "네트워크", "웹프로그래밍", "Java", "C/C++", "Python", "기타"];
+// 학과별 전공지식 분류 — backend/src/lib/knowledgePicker.ts의 직무별 분류 이름과 맞춰야 질문 생성에 반영됨
+const DEPT_SUBJECTS: Record<string, string[]> = {
+  "컴퓨터소프트웨어과": ["자료구조", "알고리즘", "운영체제", "데이터베이스", "네트워크", "웹 개발", "프론트엔드", "모바일", "객체지향 프로그래밍", "소프트웨어 공학", "정보보안", "클라우드·DevOps", "AI·머신러닝", "데이터 엔지니어링", "컴퓨터 구조·임베디드"],
+  "전자공학과": ["회로이론", "전자회로", "디지털 논리회로", "마이크로프로세서·임베디드", "신호 및 시스템", "반도체", "전자기학·RF", "제어공학", "PCB·하드웨어 설계", "디지털 설계·FPGA"],
+  "정보통신과": ["데이터 통신 기초", "TCP/IP·네트워크 프로토콜", "라우팅·스위칭", "무선통신·이동통신", "통신 이론", "네트워크 보안", "서버·리눅스 운영", "클라우드 인프라", "네트워크 설계·운영", "IT 서비스·기술 영업"],
+  "전기과": ["전기 기초 이론", "전기자기학", "전기기기", "전력공학", "수변전·배전 설비", "전기설비 설계", "전력전자", "시퀀스 제어·PLC", "신재생에너지·스마트그리드", "전기안전"],
+};
+const subjectsOf = (dept: string) => [...(DEPT_SUBJECTS[dept] ?? []), "기타"];
 
 type KnowledgeEntry = { id: number; subject: string; content: string; registeredBy: string; createdAt: string };
 
@@ -463,7 +470,7 @@ export default function AdminPage() {
                 </div>
                 <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-wrap gap-2">
                   {DEPARTMENTS.map((dept) => (
-                    <button key={dept.name} onClick={() => dept.enabled && setSelectedDept(selectedDept === dept.name ? "" : dept.name)} disabled={!dept.enabled}
+                    <button key={dept.name} onClick={() => { if (!dept.enabled) return; setSelectedDept(selectedDept === dept.name ? "" : dept.name); setSelectedSubject(""); }} disabled={!dept.enabled}
                       className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[12px] sm:text-[13px] font-medium border transition-all ${
                         !dept.enabled ? "bg-[#f8f9fc] text-[#c4c9d6] border-[#f0f2f8] cursor-not-allowed"
                         : selectedDept === dept.name ? "bg-[#0d1035] text-white border-[#0d1035]"
@@ -483,9 +490,9 @@ export default function AdminPage() {
                 </div>
                 <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
                   <div>
-                    <p className="text-[12px] font-medium text-[#6b7280] mb-2.5">과목</p>
+                    <p className="text-[12px] font-medium text-[#6b7280] mb-2.5">분류</p>
                     <div className="flex flex-wrap gap-2">
-                      {SUBJECT_LIST.map((subj) => (
+                      {subjectsOf(selectedDept).map((subj) => (
                         <button key={subj} onClick={() => setSelectedSubject(selectedSubject === subj ? "" : subj)}
                           className={`px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-medium border transition-all ${
                             selectedSubject === subj ? "bg-[#4f52e8] text-white border-[#4f52e8]"

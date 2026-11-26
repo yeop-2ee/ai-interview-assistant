@@ -22,7 +22,7 @@ router.post("/questions", async (req: Request, res: Response) => {
         where: { department },
         select: { subject: true, content: true },
       })
-      knowledgeEntries = pickKnowledge(allEntries, jobRole)
+      knowledgeEntries = pickKnowledge(allEntries, department, jobRole)
     }
 
     const AI_SERVER_URL = process.env.AI_SERVER_URL || "http://localhost:5050"
