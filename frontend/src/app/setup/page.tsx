@@ -9,9 +9,9 @@ import { IconArrowRight, IconCheck } from "@/components/Icons";
 const departments = [
   // 스마트ICT계열
   { name: "컴퓨터소프트웨어과", enabled: true },
-  { name: "전자공학과", enabled: false },
-  { name: "정보통신과", enabled: false },
-  { name: "전기과", enabled: false },
+  { name: "전자공학과", enabled: true },
+  { name: "정보통신과", enabled: true },
+  { name: "전기과", enabled: true },
   // 라이프디자인계열
   { name: "건축과", enabled: false },
   { name: "실내건축과", enabled: false },
