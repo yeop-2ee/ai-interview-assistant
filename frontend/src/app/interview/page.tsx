@@ -32,6 +32,24 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
+  const loadRetryRef = useRef(0);
+  // 브라우저가 소리 있는 자동재생을 막은 영상 — 사용자가 한 번 눌러야 재생됨
+  const [blockedSrc, setBlockedSrc] = useState<string | null>(null);
+  const needsTap = !!lipVideoSrc && blockedSrc === lipVideoSrc;
+
+  // 재생 시도: 일시적 실패(로드 중 중단 등)는 다시 시도, 자동재생 차단이면 재생 버튼 표시
+  const tryPlay = useCallback((retries = 3) => {
+    const attempt = (left: number) => {
+      const v = videoRef.current;
+      if (!v) return;
+      const src = v.getAttribute("src");
+      v.play().then(() => setBlockedSrc(null)).catch((e: unknown) => {
+        if (e instanceof Error && e.name === "NotAllowedError") { setBlockedSrc(src); return; }
+        if (left > 0) setTimeout(() => attempt(left - 1), 500);
+      });
+    };
+    attempt(retries);
+  }, []);
 
   // video → canvas로 프레임 복사 (Safari native controls가 붙을 video 엘리먼트를 화면 밖으로 숨김)
   useEffect(() => {
@@ -73,10 +91,22 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
     };
     rafRef.current = requestAnimationFrame(draw);
 
-    if (lipVideoSrc) v.play().catch(() => {});
+    loadRetryRef.current = 0;
+    if (lipVideoSrc) tryPlay();
 
     return () => { cancelAnimationFrame(rafRef.current); };
-  }, [lipVideoSrc]);
+  }, [lipVideoSrc, tryPlay]);
+
+  // 일시적 네트워크 오류로 영상 로드가 실패하면 2번까지 다시 불러오고, 그래도 안 되면 종료 처리
+  const handleVideoError = () => {
+    const v = videoRef.current;
+    if (v && loadRetryRef.current < 2) {
+      loadRetryRef.current += 1;
+      setTimeout(() => { v.load(); tryPlay(); }, 800 * loadRetryRef.current);
+      return;
+    }
+    onVideoEnded();
+  };
 
   return (
     <div className="w-full h-full relative overflow-hidden" style={{ userSelect: "none" }}>
@@ -101,7 +131,7 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
             disableRemotePlayback
             onLoadedMetadata={() => { if (videoRef.current && onVideoMetadata) onVideoMetadata(videoRef.current.duration * 1000); }}
             onEnded={onVideoEnded}
-            onError={onVideoEnded}
+            onError={handleVideoError}
             style={{ position: "absolute", left: "-9999px", width: "1px", height: "1px", opacity: 0 }}
             {...{ "x-webkit-airplay": "deny", "controlsList": "nodownload nofullscreen noremoteplayback", "webkit-playsinline": "" } as object}
           />
@@ -112,6 +142,14 @@ function AIAvatar({ speaking, lipVideoSrc, onVideoEnded, onVideoMetadata, avatar
             height={720}
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
+          {needsTap && (
+            <button
+              onClick={() => tryPlay(0)}
+              className="absolute inset-0 m-auto w-fit h-fit px-5 py-2.5 rounded-xl bg-[#4f52e8] hover:bg-[#3e41d4] text-white text-[14px] font-semibold shadow-lg"
+            >
+              ▶ 질문 듣기
+            </button>
+          )}
         </>
       )}
     </div>
@@ -757,6 +795,10 @@ export default function InterviewPage() {
 
   // 추가질문 Wav2Lip 영상 백그라운드 생성 결과 (질문 텍스트 → 영상 URL)
   const additionalVideosRef = useRef<Record<string, string>>({});
+  // 생성 중인 Wav2Lip 영상 (질문 텍스트 → 결과 Promise) — 같은 문장을 중복 생성하지 않고 결과를 함께 기다림
+  const pendingVideosRef = useRef<Record<string, Promise<string | null>>>({});
+  const speakSeqRef = useRef(0);
+  const [aiPreparing, setAiPreparing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pipVideoRef = useRef<HTMLVideoElement>(null);
@@ -810,6 +852,35 @@ export default function InterviewPage() {
   // avatarSrc는 state라 useCallback 클로저에 stale하게 캡처됨 → ref로 항상 최신값 유지
   const avatarSrcRef = useRef(avatarSrc);
   useEffect(() => { avatarSrcRef.current = avatarSrc; }, [avatarSrc]);
+
+  // 문장의 립싱크 영상 URL을 반환 — 이미 있으면 바로, 생성 중이면 그 결과를, 없으면 새로 생성 (실패 시 null)
+  const requestLipVideo = useCallback((text: string, imagePath?: string): Promise<string | null> => {
+    const ready = additionalVideosRef.current[text];
+    if (ready) return Promise.resolve(ready);
+    const pending = pendingVideosRef.current[text];
+    if (pending) return pending;
+
+    const job = (async () => {
+      try {
+        const res = await fetchWithRetry(`${MEDIA_API}/api/wav2lip/synthesize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, sessionId, voice: getTtsVoice(), imagePath: imagePath ?? avatarSrcRef.current }),
+        }, { attempts: 2 });
+        const data = await res.json();
+        if (data.success && data.videoPath) {
+          const url = `${MEDIA_API}${data.videoPath}`;
+          additionalVideosRef.current[text] = url;
+          return url;
+        }
+      } catch { /* 호출한 쪽에서 TTS로 대체 */ }
+      return null;
+    })().finally(() => { delete pendingVideosRef.current[text]; });
+
+    pendingVideosRef.current[text] = job;
+    return job;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   const {
     streamRef,
@@ -1139,18 +1210,26 @@ export default function InterviewPage() {
   }, [startListening, stopTypewriter]);
 
   const speakText = useCallback(async (text: string) => {
+    const seq = ++speakSeqRef.current;
     setAiSpeakingText(text);
     stopTypewriter();
 
-    // 1. 백그라운드에서 생성된 추가질문 Wav2Lip 영상 (타이프라이터는 onVideoMetadata 콜백에서 시작)
-    const dynamicVideo = additionalVideosRef.current[text];
-    if (dynamicVideo) {
+    // 1. Wav2Lip 영상 (타이프라이터는 onVideoMetadata 콜백에서 시작)
+    //    아직 생성 중이거나 없으면 완성될 때까지 기다림 — 바로 TTS로 넘어가면 립싱크 없이 음성만 나옴
+    let lipVideo: string | null = additionalVideosRef.current[text] ?? null;
+    if (!lipVideo) {
+      setAiPreparing(true);
+      lipVideo = await Promise.race([requestLipVideo(text), sleep(120000).then(() => null)]);
+      setAiPreparing(false);
+      if (seq !== speakSeqRef.current) return; // 기다리는 사이 다른 발화가 시작됨
+    }
+    if (lipVideo) {
       setAiSpeaking(true);
-      setLipVideoSrc(dynamicVideo);
+      setLipVideoSrc(lipVideo);
       return;
     }
 
-    // 2. fallback: TTS API
+    // 2. 영상 생성이 끝내 실패한 경우에만 TTS로 대체
     try {
       setAiSpeaking(true);
       const res = await fetchWithRetry(`${MEDIA_API}/api/tts/synthesize`, {
@@ -1204,7 +1283,7 @@ export default function InterviewPage() {
       setAiSpeakingText("");
       if (phaseRef.current === "call" && !document.hidden) startListening();
     }
-  }, [startListening, startTypewriter, stopTypewriter]);
+  }, [startListening, startTypewriter, stopTypewriter, requestLipVideo]);
 
   useEffect(() => { speakTextRef.current = speakText; }, [speakText]);
 
@@ -1232,27 +1311,9 @@ export default function InterviewPage() {
   // avatarSrc가 스타일별 이미지로 확정되는 순간(= 질문 생성 시작과 동시) 자기소개 영상 미리 생성
   useEffect(() => {
     if (avatarSrc === "/avatar.png") return; // 아직 스타일 미확정
-    if (additionalVideosRef.current[INTERVIEW_INTRO_QUESTION]) return;
-    (async () => {
-      try {
-        const res = await fetchWithRetry(`${MEDIA_API}/api/wav2lip/synthesize`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: INTERVIEW_INTRO_QUESTION,
-            sessionId,
-            voice: getTtsVoice(),
-            imagePath: avatarSrc,
-          }),
-        }, { attempts: 2 });
-        const data = await res.json();
-        if (data.success && data.videoPath) {
-          additionalVideosRef.current[INTERVIEW_INTRO_QUESTION] = `${MEDIA_API}${data.videoPath}`;
-        }
-      } catch { /* 실패 시 TTS 폴백 */ }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [avatarSrc]);
+    // 면접 시작 시 아직 생성 중이면 speakText가 이 결과를 기다림
+    requestLipVideo(INTERVIEW_INTRO_QUESTION, avatarSrc);
+  }, [avatarSrc, requestLipVideo]);
 
   useEffect(() => {
     if (phase === "call" && streamRef.current) {
@@ -1448,10 +1509,19 @@ export default function InterviewPage() {
             {/* 이름 태그 */}
             <div className="absolute top-3 left-3">
               <div className="flex items-center gap-1.5 bg-white/80 backdrop-blur-sm rounded-lg px-2.5 py-1 border border-[#e4e7ef] shadow-sm">
-                {aiSpeaking && <span className="w-1.5 h-1.5 rounded-full bg-[#4f52e8] animate-pulse" />}
+                {(aiSpeaking || aiPreparing) && <span className="w-1.5 h-1.5 rounded-full bg-[#4f52e8] animate-pulse" />}
                 <span className="text-[12px] text-[#374151] font-medium">AI 면접관</span>
               </div>
             </div>
+
+            {/* 립싱크 영상 생성 대기 중 */}
+            {aiPreparing && (
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none">
+                <span className="text-[12px] text-[#4f52e8] font-medium bg-white/85 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-[#c7d2fe] shadow-sm">
+                  AI 면접관이 질문을 준비하고 있습니다...
+                </span>
+              </div>
+            )}
 
             {/* 자막 */}
             {aiSpeaking && aiDisplayText && (
@@ -1710,19 +1780,7 @@ export default function InterviewPage() {
                     }
 
                     // 다음 말할 텍스트의 영상이 없으면 지금 생성
-                    if (nextSpeakText && !additionalVideosRef.current[nextSpeakText]) {
-                      try {
-                        const vRes = await fetchWithRetry(`${MEDIA_API}/api/wav2lip/synthesize`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: nextSpeakText, sessionId, voice: getTtsVoice(), imagePath: avatarSrcRef.current }),
-                        }, { attempts: 2 });
-                        const vData = await vRes.json();
-                        if (vData.success && vData.videoPath) {
-                          additionalVideosRef.current[nextSpeakText] = `${MEDIA_API}${vData.videoPath}`;
-                        }
-                      } catch { /* 영상 생성 실패 시 TTS 폴백 */ }
-                    }
+                    if (nextSpeakText) await requestLipVideo(nextSpeakText);
 
                     // 마지막 질문이면 로딩 중에 바로 영상 재생 시작
                     if (isLastQuestion) {
@@ -1797,8 +1855,11 @@ export default function InterviewPage() {
                     </>
                   );
                 })()}
-                {!recording && !aiSpeaking && (
+                {!recording && !aiSpeaking && !aiPreparing && (
                   <span className="text-[12px] text-[#9ca3af]">AI 면접관이 질문한 뒤 대답할 수 있습니다</span>
+                )}
+                {aiPreparing && (
+                  <span className="text-[12px] text-[#9ca3af]">AI 면접관이 질문을 준비하고 있습니다...</span>
                 )}
                 {aiSpeaking && (
                   <span className="text-[12px] text-[#9ca3af]">AI 면접관이 얘기하는 중입니다.</span>
@@ -1822,7 +1883,7 @@ export default function InterviewPage() {
               {/* 마이크 버튼 */}
               <button
                 onClick={startListening}
-                disabled={recording || aiSpeaking}
+                disabled={recording || aiSpeaking || aiPreparing}
                 title={aiSpeaking ? "AI 발화 중..." : recording ? "듣는 중..." : "마이크로 답변 시작"}
                 className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all border ${
                   recording
