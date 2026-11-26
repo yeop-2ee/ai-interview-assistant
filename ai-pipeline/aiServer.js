@@ -20,6 +20,8 @@ const GEMMA_MODEL      = process.env.GEMMA_MODEL      || 'gemma3:12b';
 // 면접 질문 생성 temperature — 낮출수록 오타·비문이 줄고, 같은 질문 반복은 늘어남
 // (파인튜닝 모델, 신규 학과 수동 채점 비문 비율: 0.8 약 25% → 0.5 약 4% → 0.3 약 1~2%)
 const QUESTION_TEMPERATURE = process.env.QUESTION_TEMPERATURE !== undefined ? Number(process.env.QUESTION_TEMPERATURE) : 0.3;
+// 꼬리질문 생성 temperature (기존에는 미설정 → Ollama 기본값 0.8)
+const FOLLOWUP_TEMPERATURE = process.env.FOLLOWUP_TEMPERATURE !== undefined ? Number(process.env.FOLLOWUP_TEMPERATURE) : 0.3;
 
 const llamaClient = new OpenAI({ baseURL: `${LLAMA_SERVER_URL}/v1`, apiKey: 'ollama' });
 const gemmaClient = new OpenAI({ baseURL: `${GEMMA_SERVER_URL}/v1`, apiKey: 'ollama' });
@@ -227,7 +229,7 @@ async function streamMLX(client, model, prompt, onProgress, estimatedChars = 400
 }
 
 // 논스트리밍 호출 (client·model 지정)
-async function callMLX(client, model, prompt, { allowTextFallback = false } = {}) {
+async function callMLX(client, model, prompt, { allowTextFallback = false, temperature } = {}) {
   const result = await client.chat.completions.create({
     model,
     messages: [
@@ -237,6 +239,7 @@ async function callMLX(client, model, prompt, { allowTextFallback = false } = {}
     response_format: { type: 'json_object' },
     stream: false,
     max_tokens: 4096,
+    ...(temperature !== undefined ? { temperature } : {}),
   });
   const raw = result.choices[0].message.content;
   try {
@@ -607,11 +610,25 @@ function sanitizeFollowup(text) {
   return text.trim();
 }
 
+// 꼬리질문 품질 검사 — 질문 생성과 같은 문자 규칙 + 물음표로 끝나는 한 문장
+function isUsableFollowup(text, answer) {
+  if (typeof text !== 'string') return false;
+  const t = text.trim();
+  if (t.length < 5 || t.length > 150) return false;
+  if (!t.endsWith('?')) return false;
+  if (/[^ -~가-힣ㄱ-ㆎ·‘’“”…–—]/.test(t)) return false; // 한자·베트남어·키릴·아랍·힌디 등 혼입
+  if (/[가-힣][A-Za-z]/.test(t)) return false;            // "기술ize" 같은 깨진 단어
+  if (answer && answer.includes(t.replace(/\?$/, ''))) return false; // 지원자 답변을 그대로 되풀이
+  return true;
+}
+
 // [llama] 면접 중 꼬리질문 생성
 app.post('/generate/followup', async (req, res) => {
   const { question = '', answer = '', department = '', jobRole = '' } = req.body;
   const style = resolveStyle(req.body.style || 'friendly');
-  const persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+  let persona = STYLE_PERSONAS[style] || STYLE_PERSONAS.friendly;
+  const deptRole = DEPT_PROFILES[department]?.roles?.[style];
+  if (deptRole) persona = { ...persona, role: deptRole };
 
   const context = [jobRole, department].filter(Boolean).join(' / ');
   const followupPrompt =
@@ -622,22 +639,22 @@ app.post('/generate/followup', async (req, res) => {
     `답변에서 언급된 구체적인 내용을 바탕으로 꼬리질문 1개를 작성하세요. 짧고 날카롭게, 물음표로 끝내세요.\n` +
     `{"followup":"꼬리질문"}`;
 
-  try {
-    const genResult = await callMLX(llamaClient, LLAMA_MODEL, followupPrompt, { allowTextFallback: true });
-    let followup = typeof genResult.followup === 'string' ? genResult.followup : null;
-    if (followup) {
-      if (isContaminated(followup)) {
-        followup = null;
-      } else {
-        followup = sanitizeFollowup(followup);
-        if (followup.length < 5) followup = null;
+  // 최대 2회 생성 — 둘 다 품질 검사를 통과하지 못하면 꼬리질문 없이 다음 질문으로 넘어감
+  let followup = null;
+  for (let attempt = 0; attempt < 2 && !followup; attempt++) {
+    try {
+      const genResult = await callMLX(llamaClient, LLAMA_MODEL, followupPrompt, { allowTextFallback: true, temperature: FOLLOWUP_TEMPERATURE });
+      let candidate = typeof genResult.followup === 'string' ? genResult.followup : null;
+      if (candidate && !isContaminated(candidate)) {
+        candidate = sanitizeFollowup(candidate);
+        if (isUsableFollowup(candidate, answer)) followup = candidate;
+        else console.warn(`꼬리질문 품질 검사 탈락 (시도 ${attempt + 1}/2):`, candidate.slice(0, 80));
       }
+    } catch (e) {
+      console.error(`꼬리질문 생성 오류 (시도 ${attempt + 1}/2):`, e.message);
     }
-    res.json({ followup });
-  } catch (e) {
-    console.error('꼬리질문 생성 오류:', e.message);
-    res.json({ followup: null });
   }
+  res.json({ followup });
 });
 
 app.post('/generate/relevance', async (req, res) => {
