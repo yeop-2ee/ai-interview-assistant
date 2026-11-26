@@ -639,8 +639,45 @@ app.post('/generate/followup', async (req, res) => {
   }
 });
 
+// [gemma] 이력서-학과 관련성 판단
+// 불일치 시 프론트엔드가 진행을 막으므로, 전혀 다른 분야일 때만 불일치로 판단하도록 관대하게 묻는다
+// (학과 그룹 분류 방식은 전기과↔전자공학과처럼 인접 분야를 잘못 차단해 사용하지 않음)
 app.post('/generate/relevance', async (req, res) => {
-  res.json({ isRelevant: true, reason: null });
+  const { resumeText = '', coverText = '', department = '' } = req.body;
+  if (!department) return res.json({ isRelevant: true, reason: null });
+
+  const combined = [
+    resumeText ? `[이력서]\n${resumeText.trim().substring(0, 2000)}` : '',
+    coverText  ? `[자기소개서]\n${coverText.trim().substring(0, 1000)}` : '',
+  ].filter(Boolean).join('\n\n');
+  if (!combined) return res.json({ isRelevant: true, reason: null });
+
+  const prompt =
+    `지원자가 "${department}" 학과로 면접 연습을 하려고 합니다. 아래 이력서·자기소개서가 이 학과와 관련이 있는지 판단하세요.\n\n` +
+    `${combined}\n\n` +
+    `[판단 기준 — 위에서부터 순서대로 적용]\n` +
+    `1. 이 학과의 전공 지식, 관련 자격증, 수업·실습·프로젝트, 관련 직무 경력, 독학 중인 관련 기술이 하나라도 있으면 true.\n` +
+    `2. 인접 분야도 true. 예: 전자공학과와 전기과, 컴퓨터소프트웨어과와 정보통신과.\n` +
+    `3. 성격·태도만 적혀 있고 전공·경력·기술이 전혀 없어 분야를 알 수 없으면 true.\n` +
+    `4. 전공·경력·자격증이 적혀 있는데 모두 이 학과와 무관한 분야라면 false. 내용이 짧아도 분야가 분명하면 false.\n` +
+    `   예: 미용 경력만 있는 이력서로 전기과 지원 → false, 조리 경력만 있는 이력서로 컴퓨터소프트웨어과 지원 → false.\n\n` +
+    `반드시 아래 JSON 형식으로만 응답:\n` +
+    `{"isRelevant":true 또는 false,"field":"이력서의 주된 분야","reason":"판단 이유 한 줄"}`;
+
+  try {
+    const parsed = await callMLX(gemmaClient, GEMMA_MODEL, prompt);
+    const isRelevant = parsed.isRelevant !== false;
+    console.log(`[relevance] 학과: ${department} | 이력서 분야: ${parsed.field} | 관련: ${isRelevant} | ${parsed.reason}`);
+    res.json({
+      isRelevant,
+      reason: isRelevant
+        ? null
+        : `선택한 학과(${department})와 관련 없는 이력서입니다. 이력서는 ${parsed.field || '다른 분야'} 관련 내용으로 구성되어 있습니다.`,
+    });
+  } catch (e) {
+    console.error('관련성 검사 오류:', e.message);
+    res.json({ isRelevant: true, reason: null });
+  }
 });
 
 // [gemma] 이력서·자소서 분석
