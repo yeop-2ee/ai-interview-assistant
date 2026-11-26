@@ -17,6 +17,9 @@ const LLAMA_MODEL      = process.env.LLAMA_MODEL      || 'gemma3:12b'; // 파인
 const GEMMA_SERVER_URL = process.env.GEMMA_SERVER_URL || process.env.LLM_SERVER_URL || 'http://localhost:11434';
 const GEMMA_MODEL      = process.env.GEMMA_MODEL      || 'gemma3:12b';
 
+// 면접 질문 생성 temperature — 낮출수록 오타·비문이 줄어듦 (파인튜닝 모델 실험: 0.8→0.5에서 불량률 25%→8%)
+const QUESTION_TEMPERATURE = process.env.QUESTION_TEMPERATURE !== undefined ? Number(process.env.QUESTION_TEMPERATURE) : 0.5;
+
 const llamaClient = new OpenAI({ baseURL: `${LLAMA_SERVER_URL}/v1`, apiKey: 'ollama' });
 const gemmaClient = new OpenAI({ baseURL: `${GEMMA_SERVER_URL}/v1`, apiKey: 'ollama' });
 
@@ -90,16 +93,16 @@ const DEPT_PROFILES = {
       professor: '15년 경력의 시니어 하드웨어 엔지니어 출신 기술 면접관',
       practical: '실무 프로젝트를 직접 이끄는 현업 하드웨어 설계팀 팀장',
     },
-    career: '어떤 전자·하드웨어 분야(회로 설계, 임베디드, 반도체 등)에 관심이 있고 앞으로 어떤 엔지니어가 되고 싶은지 설명하게 만드는 질문.',
-    collab: '팀 프로젝트에서 회로도·펌웨어 버전 관리나 설계 문서화를 어떻게 했는지 설명하게 만드는 질문.',
+    career: '전자·하드웨어 분야 중 관심 있는 분야와 앞으로 어떤 엔지니어가 되고 싶은지 묻는 질문.',
+    collab: '팀 프로젝트에서 회로도나 설계 문서를 어떻게 관리하고 공유했는지 묻는 질문.',
     basics: '저항·커패시터·인덕터의 역할, 아날로그와 디지털 신호의 차이, 옴의 법칙, 오실로스코프로 무엇을 측정하는지, 마이크로컨트롤러와 마이크로프로세서의 차이, PWM이 무엇인지',
-    build: '간단한 장치(예: 온도 측정기, LED 제어 회로, 센서 데이터 수집 보드)를 처음부터 만든다면 어떤 순서로 설계·제작할지 설명하게 만드는 질문.',
-    trend: 'AI 반도체, 전기차 전장 등 전자 산업의 변화가 하드웨어 엔지니어의 역할을 어떻게 바꿀지 의견을 말하게 만드는 질문.',
+    build: '간단한 센서 장치를 처음부터 만든다면 어떤 순서로 설계할지 묻는 질문.',
+    trend: '전자 산업의 변화가 하드웨어 엔지니어의 역할을 어떻게 바꿀지 의견을 묻는 질문.',
     tools: '사용한 장비·툴(회로 설계 툴, MCU, 계측 장비 등)',
     examples: [
-      '회로 설계 과제에서 가장 어려웠던 부분은 무엇이었나요?',
+      '납땜 불량을 찾을 때 어떤 방법을 사용하셨나요?',
       '오실로스코프로 신호를 측정할 때 어떤 점을 확인하시나요?',
-      '센서 값을 읽는 회로를 만든다면 무엇부터 설계하시겠어요?',
+      '시뮬레이션 결과와 실제 측정값이 다르면 어떻게 하시겠어요?',
     ],
   },
   '정보통신과': {
@@ -107,16 +110,16 @@ const DEPT_PROFILES = {
       professor: '15년 경력의 시니어 네트워크 엔지니어 출신 기술 면접관',
       practical: '실무 프로젝트를 직접 이끄는 현업 네트워크 운영팀 팀장',
     },
-    career: '어떤 정보통신 분야(네트워크, 무선통신, 클라우드 인프라, 보안 등)에 관심이 있고 앞으로 어떤 엔지니어가 되고 싶은지 설명하게 만드는 질문.',
-    collab: '팀 프로젝트에서 네트워크 구성도나 장비 설정 변경 이력을 어떻게 관리하고 공유했는지 설명하게 만드는 질문.',
+    career: '정보통신 분야 중 관심 있는 분야와 앞으로 어떤 엔지니어가 되고 싶은지 묻는 질문.',
+    collab: '팀 프로젝트에서 네트워크 설정 변경 내용을 어떻게 기록하고 공유했는지 묻는 질문.',
     basics: 'OSI 7계층, TCP와 UDP의 차이, IP 주소와 서브넷 마스크, 라우터와 스위치의 차이, DNS의 역할, VLAN이 무엇인지',
-    build: '소규모 사무실 네트워크(예: 유무선 인터넷, 공유 프린터, 방화벽)를 처음부터 구축한다면 어떤 순서로 접근할지 설명하게 만드는 질문.',
-    trend: '5G·6G, 클라우드 전환, 네트워크 자동화가 통신 엔지니어의 역할을 어떻게 바꿀지 의견을 말하게 만드는 질문.',
+    build: '소규모 사무실 네트워크를 처음부터 구축한다면 어떤 순서로 진행할지 묻는 질문.',
+    trend: '통신 기술의 변화가 네트워크 엔지니어의 역할을 어떻게 바꿀지 의견을 묻는 질문.',
     tools: '사용한 장비·기술(네트워크 장비, 프로토콜, 클라우드 서비스 등)',
     examples: [
-      'TCP와 UDP는 각각 어떤 상황에 적합한지 설명해 주시겠어요?',
+      '방화벽 정책을 정할 때 어떤 기준을 두시겠어요?',
       '네트워크 장애가 생기면 가장 먼저 무엇을 확인하시겠어요?',
-      '실습에서 장비 설정을 바꿀 때 기록을 어떻게 남기셨나요?',
+      '와이파이 신호가 약한 구역은 어떻게 개선하시겠어요?',
     ],
   },
   '전기과': {
@@ -124,16 +127,16 @@ const DEPT_PROFILES = {
       professor: '15년 경력의 시니어 전기 엔지니어 출신 기술 면접관',
       practical: '실무 현장을 직접 이끄는 현업 전기설비팀 팀장',
     },
-    career: '어떤 전기 분야(전력 설비, 전기 설계, 자동화 제어, 신재생에너지 등)에 관심이 있고 앞으로 어떤 엔지니어가 되고 싶은지 설명하게 만드는 질문.',
-    collab: '팀 프로젝트나 실습에서 도면 관리, 안전 수칙 공유, 작업 분담을 어떻게 했는지 설명하게 만드는 질문.',
+    career: '전기 분야 중 관심 있는 분야와 앞으로 어떤 엔지니어가 되고 싶은지 묻는 질문.',
+    collab: '실습이나 팀 프로젝트에서 안전 수칙을 어떻게 지키고 공유했는지 묻는 질문.',
     basics: '교류와 직류의 차이, 전압·전류·저항의 관계, 차단기의 역할, 접지를 하는 이유, 변압기의 원리, 3상 전력이 무엇인지',
-    build: '간단한 설비(예: 전동기 정·역회전 제어 회로, 조명 자동 제어, 소규모 배전반)를 처음부터 구성한다면 어떤 순서로 접근할지 설명하게 만드는 질문.',
-    trend: '신재생에너지, 스마트그리드, 전기차 충전 인프라 확대가 전기 엔지니어의 역할을 어떻게 바꿀지 의견을 말하게 만드는 질문.',
+    build: '간단한 전동기 제어 회로를 처음부터 구성한다면 어떤 순서로 작업할지 묻는 질문.',
+    trend: '신재생에너지 확대가 전기 엔지니어의 역할을 어떻게 바꿀지 의견을 묻는 질문.',
     tools: '사용한 장비·기술(PLC, 계측기, 전기 설계 툴 등)',
     examples: [
-      '접지를 하는 이유를 실제 현장 예시와 함께 설명해 주시겠어요?',
-      '전동기 제어 회로를 구성한다면 어떤 순서로 작업하시겠어요?',
-      '실습 중 안전 수칙을 지키기 위해 어떤 점을 신경 쓰셨나요?',
+      '절연 저항 측정은 어떤 상황에서 하시나요?',
+      '차단기가 자주 떨어지면 어떤 점부터 점검하시겠어요?',
+      '도면과 현장 배선이 다르면 어떻게 대응하시겠어요?',
     ],
   },
   '게임콘텐츠과': {
@@ -159,7 +162,8 @@ const DEPT_PROFILES = {
 function deptExamples(department) {
   const ex = DEPT_PROFILES[department]?.examples;
   if (!ex?.length) return '';
-  return `[좋은 질문 예시 — 말투와 길이만 참고하고, 문장을 그대로 쓰지 말 것]\n${ex.map(e => `- ${e}`).join('\n')}\n\n`;
+  return `[좋은 질문 예시 — 말투와 길이만 참고하고, 문장을 그대로 쓰지 말 것]\n${ex.map(e => `- ${e}`).join('\n')}\n\n`
+    + `[한국어 규칙]\n- 실제로 쓰이지 않는 어색한 조어나 존재하지 않는 단어 사용 금지 — 자연스러운 한국어 존댓말만 사용.\n- 한 질문에는 한 가지만 물을 것. 여러 개념·용어를 한 문장에 섞지 말 것.\n- 전문 용어는 위에 나온 표현을 그대로 쓸 것.\n\n`;
 }
 
 // ── LLM 호출 헬퍼 ─────────────────────────────────────────────────────────
@@ -211,8 +215,8 @@ async function streamRaw(client, model, prompt, onProgress, estimatedChars = 400
 }
 
 // 스트리밍 + JSON 파싱 (client·model 지정)
-async function streamMLX(client, model, prompt, onProgress, estimatedChars = 400) {
-  const raw = await streamRaw(client, model, prompt, onProgress, estimatedChars);
+async function streamMLX(client, model, prompt, onProgress, estimatedChars = 400, extraOptions = {}) {
+  const raw = await streamRaw(client, model, prompt, onProgress, estimatedChars, extraOptions);
   try {
     return extractJSON(raw);
   } catch {
@@ -501,7 +505,7 @@ app.post('/generate/questions', async (req, res) => {
       let best = [];
       for (let attempt = 0; attempt < 3 && best.length < count; attempt++) {
         try {
-          const result = await streamMLX(llamaClient, LLAMA_MODEL, prompt, attempt === 0 ? onProgress : () => {}, estimatedChars);
+          const result = await streamMLX(llamaClient, LLAMA_MODEL, prompt, attempt === 0 ? onProgress : () => {}, estimatedChars, { temperature: QUESTION_TEMPERATURE });
           const qs = (Array.isArray(result.questions) ? result.questions : [])
             .map(q => (typeof q === 'string' ? q.trim() : q))
             .filter(filterQuestion)
